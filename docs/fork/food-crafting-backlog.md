@@ -6,7 +6,7 @@ Status legend: `[ ]` planned · `[~]` built, needs check · `[x]` done · `[?]` 
 Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodCrafting/` · Tests: `src/StatisticsAnalysisTool.UnitTests/Crafting/FoodCraftingTests.cs`
 
 > **Build status (2026-11-22):** .NET 10 SDK 10.0.404 installed. Solution builds with 0 errors (no new warnings);
-> all 233 unit tests pass. Tried in the running app by the user.
+> all 252 unit tests pass. Used for real batches by the user (sell orders, plan lock, safety margin confirmed).
 
 ## Decisions
 - Only **food** is in scope. Non-food crafting differences are ignored.
@@ -62,25 +62,25 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
 - [~] D4. Plan table + summary tiles (focus used/left, investment, revenue, profit, profit/focus, items).
 - [~] D5. Shopping list (expected and no-return quantities), crafted-sauce ingredients listed separately.
 - [~] D6. Sales tax + setup fee + station fee included.
-- [~] D9. Max investment (silver) limit for the plan; 0 = no limit. Leftover silver goes to cheaper foods.
-- [~] D10. Real cost from in-game sell orders. When an item's market page (Buy tab) is opened while the tool runs,
-      the game's sell orders (price + amount) are stored per item and city (`FoodOrderBook.cs`, saved in
-      `FoodCraftingOrderBooks.json`, pages within 5 min are merged, books older than 7 days dropped).
-      Ingredient prices then come from the order book: the plan is re-calculated up to 4 times with the average price
-      for the planned quantity (buying a lot pushes the price up, e.g. Avalonian Energy). Shopping list shows
-      listed amount (red when short), real average/max price, real cost and order age. Settings: on/off, max order age (120 min).
-- [~] D11. Lock plan: the lock button keeps the planned foods + crafts fixed (saved, survives restart).
-      Prices, profit and the shopping list still update; locked foods are kept even if filters change.
-- [~] D12. Shopping safety margin: returns are random, so 'Buy (safe)' = expected + N standard deviations
-      (binomial per unit, default 2 = about 98% enough), never more than the no-return quantity.
-      Order-book real cost uses the safe quantity.
-- [~] D13. "Fish sauce to craft" table: per sauce level the sauces to craft (expected + safety margin, whole crafts),
-      crafts, Chopped Fish and Seaweed for that level, plus a total line. The shopping list buys exactly these amounts.
 - [~] D7. "Recalculate" re-plans with the downloaded prices after changing settings (no new download).
 - [~] D8. "Missing / outdated prices" list: every item (food or ingredient) with no price or a price older than
       the max price age, how old it is, and which foods it keeps out of the plan (most blocking first).
       For fish sauce it lists the sauce (Buy), its missing ingredients (Craft) or both (Cheapest).
       "Copy list" copies it, so you can refresh those items in-game with the Albion Data Client.
+- [~] D9. Max investment (silver) limit for the plan; 0 = no limit. Leftover silver goes to cheaper foods.
+- [x] D10. Real cost from in-game sell orders. When an item's market page (Buy tab) is opened while the tool runs,
+      the game's sell orders (price + amount) are stored per item and city (`FoodOrderBook.cs`, saved in
+      `FoodCraftingOrderBooks.json`, pages within 5 min are merged, books older than 7 days dropped).
+      Ingredient prices then come from the order book: the plan is re-calculated up to 4 times with the average price
+      for the planned quantity (buying a lot pushes the price up, e.g. Avalonian Energy). Shopping list shows
+      listed amount (red when short), real average/max price, real cost and order age. Settings: on/off, max order age (120 min).
+- [x] D11. Lock plan: the lock button keeps the planned foods + crafts fixed (saved, survives restart).
+      Prices, profit and the shopping list still update; locked foods are kept even if filters change.
+- [x] D12. Shopping safety margin: returns are random, so 'Buy (safe)' = expected + N standard deviations
+      (binomial per unit, default 2 = about 98% enough), never more than the no-return quantity.
+      Order-book real cost uses the safe quantity.
+- [~] D13. "Fish sauce to craft" table: per sauce level the sauces to craft (expected + safety margin, whole crafts),
+      crafts, Chopped Fish and Seaweed for that level, plus a total line. The shopping list buys exactly these amounts.
 
 ## Open questions / things to check in-game
 - [x] Q1. Focus formula constants → verified (own spec 250 + 30).
@@ -98,7 +98,8 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
 - [?] E6. Multiple destiny board profiles (one per character).
 - [?] E7. Copy the plan / shopping list to clipboard.
 - [?] E8. "Open in Item Crafting" for one food to see the detailed breakdown.
-- [?] E9. Account for re-crafting the returned resources more precisely (variance, rounding per craft).
+- [x] E9. Re-crafting returned resources more precisely → done as D12 (safety margin for random returns)
+      and D13 (fish sauce rounded to whole crafts per level).
 
 ## Merge-risk log
 | Change | Upstream file | Risk |
