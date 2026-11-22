@@ -443,6 +443,37 @@
                 </ListView.View>
             </ListView>
 
+            <!-- Fish sauce to craft -->
+            <TextBlock Text="Fish sauce to craft" Style="{StaticResource Food.SectionTitle}" />
+            <TextBlock Text="{Binding FishSauceCraftSummaryText}" Foreground="{StaticResource SolidColorBrush.Text.2}" Margin="0,0,0,4" TextWrapping="Wrap" />
+            <ListView ItemsSource="{Binding FishSauceCraftRows}" MinHeight="60" Margin="0,0,0,10">
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Header="" Width="45">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Image Source="{Binding Icon}" Width="32" Height="32" />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="Sauce" Width="200" DisplayMemberBinding="{Binding Name}" />
+                        <GridViewColumn Header="Sauces to craft" Width="115">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Craft.SaucesCrafted, StringFormat=N0}" FontWeight="Bold" />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="Crafts" Width="70" DisplayMemberBinding="{Binding Craft.Crafts, StringFormat=N0}" />
+                        <GridViewColumn Header="Chopped Fish" Width="105" DisplayMemberBinding="{Binding ChoppedFish, StringFormat=N0}" />
+                        <GridViewColumn Header="Seaweed" Width="85" DisplayMemberBinding="{Binding Seaweed, StringFormat=N0}" />
+                        <GridViewColumn Header="Used (expected)" Width="115" DisplayMemberBinding="{Binding Craft.NetSauces, StringFormat=N0}" />
+                        <GridViewColumn Header="Used (no returns)" Width="125" DisplayMemberBinding="{Binding Craft.GrossSauces, StringFormat=N0}" />
+                        <GridViewColumn Header="Recipe" Width="260" DisplayMemberBinding="{Binding IngredientsText}" />
+                    </GridView>
+                </ListView.View>
+            </ListView>
+
             <!-- All profitable foods -->
             <TextBlock Text="All profitable foods (best profit per focus first)" Style="{StaticResource Food.SectionTitle}" />
             <ListView ItemsSource="{Binding Candidates}" MinHeight="120">

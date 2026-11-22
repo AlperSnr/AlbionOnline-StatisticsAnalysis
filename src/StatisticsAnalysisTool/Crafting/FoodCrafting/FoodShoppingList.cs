@@ -29,10 +29,21 @@ public sealed class FoodShoppingItem
     /// <summary>Extra standard deviations to buy on top of the expected quantity (0 = none, 2 ≈ 98% enough).</summary>
     public decimal SafetyMarginSigma { get; init; }
 
+    /// <summary>
+    /// Part of the quantities that is for crafting fish sauce. Its safe amount is already decided by the
+    /// fish sauce crafts (whole crafts of the safe number of sauces), so no extra margin is added on top.
+    /// </summary>
+    public decimal FishSauceNetQuantity { get; init; }
+
+    public decimal FishSauceGrossQuantity { get; init; }
+    public decimal FishSauceSafeQuantity { get; init; }
+
     /// <summary>Expected quantity + safety margin, never more than the quantity without any returns.</summary>
     public decimal SafeQuantity => Math.Min(
-        GrossQuantity,
-        NetQuantity + Math.Max(0m, SafetyMarginSigma) * (decimal) Math.Sqrt((double) Math.Max(0m, ReturnVariance)));
+                                       GrossQuantity - FishSauceGrossQuantity,
+                                       NetQuantity - FishSauceNetQuantity
+                                       + Math.Max(0m, SafetyMarginSigma) * (decimal) Math.Sqrt((double) Math.Max(0m, ReturnVariance)))
+                                   + FishSauceSafeQuantity;
 
     public int NetQuantityToBuy => (int) Math.Ceiling(NetQuantity);
     public int GrossQuantityToBuy => (int) Math.Ceiling(GrossQuantity);
@@ -40,6 +51,43 @@ public sealed class FoodShoppingItem
     public int SafetyExtra => SafeQuantityToBuy - NetQuantityToBuy;
     public decimal SafeCost => SafeQuantityToBuy * UnitPrice;
     public decimal NetCost => NetQuantityToBuy * UnitPrice;
+}
+
+/// <summary>How much of one fish sauce level to craft for the plan.</summary>
+public sealed class FoodFishSauceCraft
+{
+    public int Level { get; init; }
+    public string UniqueName { get; init; }
+
+    /// <summary>Sauces used on average (food returns re-used).</summary>
+    public decimal NetSauces { get; init; }
+
+    /// <summary>Sauces needed when nothing comes back.</summary>
+    public decimal GrossSauces { get; init; }
+
+    /// <summary>Sauces to craft: expected + safety margin, never more than <see cref="GrossSauces"/>.</summary>
+    public int SaucesToCraft { get; init; }
+
+    public int AmountCrafted { get; init; } = 1;
+    public int Crafts { get; init; }
+
+    /// <summary>Sauces you get from <see cref="Crafts"/> (can be a bit more than needed because of whole crafts).</summary>
+    public int SaucesCrafted => Crafts * Math.Max(1, AmountCrafted);
+
+    public IReadOnlyList<FoodFishSauceIngredientNeed> Ingredients { get; init; } = [];
+}
+
+public sealed class FoodFishSauceIngredientNeed
+{
+    public string UniqueName { get; init; }
+    public int PerCraft { get; init; }
+    public int Quantity { get; init; }
+}
+
+public sealed class FoodShoppingResult
+{
+    public IReadOnlyList<FoodShoppingItem> Items { get; init; } = [];
+    public IReadOnlyList<FoodFishSauceCraft> FishSauceCrafts { get; init; } = [];
 }
 
 public static class FoodShoppingListBuilder
@@ -51,22 +99,29 @@ public static class FoodShoppingListBuilder
         decimal sauceReturnRatePercent,
         decimal safetyMarginSigma = 0m)
     {
-        var totals = new Dictionary<string, (decimal Net, decimal Gross, decimal Price, bool ForSauce, decimal Variance)>(StringComparer.OrdinalIgnoreCase);
+        return BuildWithFishSauce(plan, sauceRecipes, unitPrices, sauceReturnRatePercent, safetyMarginSigma).Items;
+    }
 
-        void Add(string uniqueName, decimal net, decimal gross, decimal price, bool forSauce)
+    public static FoodShoppingResult BuildWithFishSauce(
+        FoodPlan plan,
+        IReadOnlyDictionary<int, FishSauceRecipe> sauceRecipes,
+        IReadOnlyDictionary<string, decimal> unitPrices,
+        decimal sauceReturnRatePercent,
+        decimal safetyMarginSigma = 0m)
+    {
+        var sigma = Math.Max(0m, safetyMarginSigma);
+        var totals = new Dictionary<string, ShoppingTotal>(StringComparer.OrdinalIgnoreCase);
+        var sauceNeeds = new SortedDictionary<int, (decimal Net, decimal Gross, decimal Variance)>();
+
+        ShoppingTotal Get(string uniqueName)
         {
-            if (string.IsNullOrWhiteSpace(uniqueName) || (net <= 0m && gross <= 0m))
+            if (!totals.TryGetValue(uniqueName, out var total))
             {
-                return;
+                total = new ShoppingTotal();
+                totals[uniqueName] = total;
             }
 
-            // Return chance implied by this line (net = gross × (1 − r)); variance of a binomial(gross, r).
-            var returnRate = gross > 0m ? Math.Clamp(1m - net / gross, 0m, 1m) : 0m;
-            var variance = gross * returnRate * (1m - returnRate);
-
-            totals.TryGetValue(uniqueName, out var current);
-            totals[uniqueName] = (current.Net + net, current.Gross + gross, price > 0m ? price : current.Price,
-                current.ForSauce || forSauce, current.Variance + variance);
+            return total;
         }
 
         foreach (var entry in plan?.Entries ?? [])
@@ -75,41 +130,119 @@ public static class FoodShoppingListBuilder
             {
                 var net = resource.NetQuantityPerCraft * entry.Crafts;
                 var gross = resource.GrossQuantityPerCraft * entry.Crafts;
-
-                if (resource.IsCraftedSauce
-                    && sauceRecipes != null
-                    && sauceRecipes.TryGetValue(resource.FishSauceLevel, out var recipe))
+                if (string.IsNullOrWhiteSpace(resource.UniqueName) || (net <= 0m && gross <= 0m))
                 {
-                    // We need 'net' sauces in the long run, 'gross' sauces to start all crafts at once.
-                    var netIngredients = FishSauceCalculator.GetIngredientsForSauces(recipe, net, sauceReturnRatePercent).ToList();
-                    var grossIngredients = FishSauceCalculator.GetIngredientsForSauces(recipe, gross, 0m).ToDictionary(x => x.UniqueName, x => x.GrossQuantity);
-
-                    foreach (var ingredient in netIngredients)
-                    {
-                        var price = unitPrices != null && unitPrices.TryGetValue(ingredient.UniqueName, out var p) ? p : 0m;
-                        Add(ingredient.UniqueName, ingredient.NetQuantity, grossIngredients.GetValueOrDefault(ingredient.UniqueName), price, true);
-                    }
-
                     continue;
                 }
 
-                Add(resource.UniqueName, net, gross, resource.UnitPrice, false);
+                var variance = GetReturnVariance(net, gross);
+
+                if (resource.IsCraftedSauce && sauceRecipes != null && sauceRecipes.ContainsKey(resource.FishSauceLevel))
+                {
+                    sauceNeeds.TryGetValue(resource.FishSauceLevel, out var need);
+                    sauceNeeds[resource.FishSauceLevel] = (need.Net + net, need.Gross + gross, need.Variance + variance);
+                    continue;
+                }
+
+                var total = Get(resource.UniqueName);
+                total.Net += net;
+                total.Gross += gross;
+                total.Variance += variance;
+                if (resource.UnitPrice > 0m)
+                {
+                    total.Price = resource.UnitPrice;
+                }
             }
         }
 
-        return totals
+        // Fish sauce: decide the safe number of sauces per level first, then buy the ingredients for whole crafts.
+        var sauceReturnRate = Math.Clamp(sauceReturnRatePercent, 0m, 100m) / 100m;
+        var sauceCrafts = new List<FoodFishSauceCraft>();
+
+        foreach (var (level, need) in sauceNeeds)
+        {
+            var recipe = sauceRecipes[level];
+            var amountCrafted = Math.Max(1, recipe.AmountCrafted);
+            var safeSauces = (int) Math.Ceiling(Math.Min(need.Gross, need.Net + sigma * Sqrt(need.Variance)));
+            safeSauces = Math.Max(safeSauces, (int) Math.Ceiling(need.Net));
+            var crafts = (int) Math.Ceiling(safeSauces / (decimal) amountCrafted);
+            var ingredients = new List<FoodFishSauceIngredientNeed>();
+
+            foreach (var ingredient in recipe.Ingredients)
+            {
+                var quantity = crafts * ingredient.Count;
+                ingredients.Add(new FoodFishSauceIngredientNeed { UniqueName = ingredient.UniqueName, PerCraft = ingredient.Count, Quantity = quantity });
+
+                var expectedCrafts = need.Net / amountCrafted;
+                var total = Get(ingredient.UniqueName);
+                var sauceNet = expectedCrafts * ingredient.Count * (1m - sauceReturnRate);
+                var sauceGross = need.Gross / amountCrafted * ingredient.Count;
+                total.Net += sauceNet;
+                total.Gross += sauceGross;
+                total.SauceNet += sauceNet;
+                total.SauceGross += sauceGross;
+                total.SauceSafe += quantity;
+                total.ForSauce = true;
+                if (unitPrices != null && unitPrices.TryGetValue(ingredient.UniqueName, out var price) && price > 0m)
+                {
+                    total.Price = price;
+                }
+            }
+
+            sauceCrafts.Add(new FoodFishSauceCraft
+            {
+                Level = level,
+                UniqueName = recipe.UniqueName ?? FishSauceRecipe.GetUniqueName(level),
+                NetSauces = Math.Round(need.Net, 2, MidpointRounding.AwayFromZero),
+                GrossSauces = Math.Round(need.Gross, 2, MidpointRounding.AwayFromZero),
+                SaucesToCraft = safeSauces,
+                AmountCrafted = amountCrafted,
+                Crafts = crafts,
+                Ingredients = ingredients
+            });
+        }
+
+        var items = totals
             .Select(x => new FoodShoppingItem
             {
                 UniqueName = x.Key,
-                NetQuantity = Math.Round(x.Value.Net, 4, MidpointRounding.AwayFromZero),
-                GrossQuantity = Math.Round(x.Value.Gross, 4, MidpointRounding.AwayFromZero),
+                NetQuantity = Round(x.Value.Net),
+                GrossQuantity = Round(x.Value.Gross),
                 UnitPrice = x.Value.Price,
                 IsForFishSauce = x.Value.ForSauce,
-                ReturnVariance = Math.Round(x.Value.Variance, 4, MidpointRounding.AwayFromZero),
-                SafetyMarginSigma = Math.Max(0m, safetyMarginSigma)
+                ReturnVariance = Round(x.Value.Variance),
+                SafetyMarginSigma = sigma,
+                FishSauceNetQuantity = Round(x.Value.SauceNet),
+                FishSauceGrossQuantity = Round(x.Value.SauceGross),
+                FishSauceSafeQuantity = x.Value.SauceSafe
             })
             .OrderBy(x => x.IsForFishSauce)
             .ThenByDescending(x => x.NetCost)
             .ToList();
+
+        return new FoodShoppingResult { Items = items, FishSauceCrafts = sauceCrafts };
+    }
+
+    /// <summary>Return chance implied by a line (net = gross × (1 − r)); variance of a binomial(gross, r).</summary>
+    private static decimal GetReturnVariance(decimal net, decimal gross)
+    {
+        var returnRate = gross > 0m ? Math.Clamp(1m - net / gross, 0m, 1m) : 0m;
+        return gross * returnRate * (1m - returnRate);
+    }
+
+    private static decimal Sqrt(decimal value) => (decimal) Math.Sqrt((double) Math.Max(0m, value));
+
+    private static decimal Round(decimal value) => Math.Round(value, 4, MidpointRounding.AwayFromZero);
+
+    private sealed class ShoppingTotal
+    {
+        public decimal Net;
+        public decimal Gross;
+        public decimal Variance;
+        public decimal Price;
+        public bool ForSauce;
+        public decimal SauceNet;
+        public decimal SauceGross;
+        public decimal SauceSafe;
     }
 }

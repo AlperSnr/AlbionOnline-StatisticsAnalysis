@@ -84,6 +84,18 @@ public sealed class FoodCraftingBindings : BaseViewModel
     public ObservableCollection<FishSauceRow> FishSauceRows { get; } = [];
     public ObservableCollection<FoodItemOption> FoodItemOptions { get; } = [];
     public ObservableCollection<FoodMissingPriceRow> MissingPriceRows { get; } = [];
+    public ObservableCollection<FoodFishSauceCraftRow> FishSauceCraftRows { get; } = [];
+
+    public string FishSauceCraftSummaryText
+    {
+        get;
+        private set
+        {
+            field = value;
+            OnPropertyChanged();
+        }
+    }
+    = string.Empty;
 
     public string OrderBookSummaryText
     {
@@ -507,12 +519,14 @@ public sealed class FoodCraftingBindings : BaseViewModel
             var missingPrices = FoodMissingPriceListBuilder.Build(evaluation.Candidates, prices, nowUtc, settings.MaxPriceAgeHours);
 
             return (candidates: evaluation.Candidates, plan: evaluation.Plan, shopping: evaluation.Shopping, sauceCosts: evaluation.SauceCosts,
+                sauceCrafts: evaluation.FishSauceCrafts,
                 sauceReturnRate, foodReturnRate, missingPrices, bookCosts, bookCount: books.Count);
         });
 
         ApplyResult(result.candidates, result.plan, result.shopping, result.sauceCosts, result.sauceReturnRate, result.foodReturnRate, settings);
         ApplyMissingPrices(result.missingPrices, result.candidates.Count(x => !x.IsValid));
         ApplyOrderBookCosts(result.bookCosts, result.bookCount, settings);
+        ApplyFishSauceCrafts(result.sauceCrafts);
     }
 
     private const int MaxOrderBookRounds = 4;
@@ -521,7 +535,8 @@ public sealed class FoodCraftingBindings : BaseViewModel
         List<FoodCandidate> Candidates,
         FoodPlan Plan,
         IReadOnlyList<FoodShoppingItem> Shopping,
-        Dictionary<int, FishSauceCost> SauceCosts);
+        Dictionary<int, FishSauceCost> SauceCosts,
+        IReadOnlyList<FoodFishSauceCraft> FishSauceCrafts);
 
     private EvaluationResult EvaluateAll(
         List<Item> foods,
@@ -564,9 +579,9 @@ public sealed class FoodCraftingBindings : BaseViewModel
         var plan = settings.IsPlanLocked
             ? FoodPlanner.FromLocked(candidates, settings.LockedPlan, planInput)
             : FoodPlanner.Plan(candidates, planInput);
-        var shopping = FoodShoppingListBuilder.Build(plan, sauceRecipes, unitPrices, sauceReturnRate, settings.ShoppingSafetyMargin);
+        var shopping = FoodShoppingListBuilder.BuildWithFishSauce(plan, sauceRecipes, unitPrices, sauceReturnRate, settings.ShoppingSafetyMargin);
 
-        return new EvaluationResult(candidates, plan, shopping, sauceCosts);
+        return new EvaluationResult(candidates, plan, shopping.Items, sauceCosts, shopping.FishSauceCrafts);
     }
 
     private static Dictionary<string, FoodOrderBook> GetOrderBooks(IEnumerable<string> names, FoodCraftingSettings settings, DateTime nowUtc)
@@ -624,6 +639,33 @@ public sealed class FoodCraftingBindings : BaseViewModel
                                    + (shortItems > 0 ? $" | {shortItems} items not enough listed" : string.Empty)
                                    + (covered < ShoppingRows.Count ? ". Open the other items in the market (Buy tab) to include them." : ".");
         }
+    }
+
+    private void ApplyFishSauceCrafts(IReadOnlyList<FoodFishSauceCraft> crafts)
+    {
+        FishSauceCraftRows.Clear();
+        foreach (var craft in crafts ?? [])
+        {
+            FishSauceCraftRows.Add(new FoodFishSauceCraftRow
+            {
+                Craft = craft,
+                Name = ItemController.GetItemByUniqueName(craft.UniqueName)?.LocalizedName ?? craft.UniqueName,
+                Icon = GetIcon(craft.UniqueName)
+            });
+        }
+
+        if (FishSauceCraftRows.Count == 0)
+        {
+            FishSauceCraftSummaryText = "No fish sauce to craft in this plan.";
+            return;
+        }
+
+        var totals = FishSauceCraftRows
+            .SelectMany(x => x.Craft.Ingredients)
+            .GroupBy(x => x.UniqueName, StringComparer.OrdinalIgnoreCase)
+            .Select(x => $"{x.Sum(y => y.Quantity):N0} × {ItemController.GetItemByUniqueName(x.Key)?.LocalizedName ?? x.Key}");
+        FishSauceCraftSummaryText = $"Total for all sauces: {string.Join(" + ", totals)} "
+                                    + $"({FishSauceCraftRows.Sum(x => x.Craft.Crafts):N0} crafts). Sauce crafting has no returns.";
     }
 
     private void ApplyResult(
@@ -810,6 +852,27 @@ public sealed class FoodMissingPriceRow
     public string UsageText => Item?.IsFood == true ? "Food" : "Ingredient";
     public string LastPriceText => Item?.LastSellPrice > 0m ? Item.LastSellPrice.ToString("N0", CultureInfo.CurrentCulture) : "-";
     public string BlockedFoodsText => Item == null ? string.Empty : string.Join(", ", Item.BlockedFoodNames);
+}
+
+public sealed class FoodFishSauceCraftRow
+{
+    public FoodFishSauceCraft Craft { get; init; }
+    public string Name { get; init; }
+    public BitmapImage Icon { get; init; }
+
+    public int ChoppedFish => GetQuantity("FISHCHOPS");
+    public int Seaweed => GetQuantity("SEAWEED");
+
+    public string IngredientsText => Craft == null
+        ? string.Empty
+        : string.Join(" + ", Craft.Ingredients.Select(x => $"{x.PerCraft} × {ItemController.GetItemByUniqueName(x.UniqueName)?.LocalizedName ?? x.UniqueName}")) + " per craft";
+
+    private int GetQuantity(string part)
+    {
+        return Craft?.Ingredients
+            .Where(x => x.UniqueName?.Contains(part, StringComparison.OrdinalIgnoreCase) == true)
+            .Sum(x => x.Quantity) ?? 0;
+    }
 }
 
 public sealed class FoodPlanRow

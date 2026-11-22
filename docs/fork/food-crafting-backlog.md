@@ -74,6 +74,8 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
 - [~] D12. Shopping safety margin: returns are random, so 'Buy (safe)' = expected + N standard deviations
       (binomial per unit, default 2 = about 98% enough), never more than the no-return quantity.
       Order-book real cost uses the safe quantity.
+- [~] D13. "Fish sauce to craft" table: per sauce level the sauces to craft (expected + safety margin, whole crafts),
+      crafts, Chopped Fish and Seaweed for that level, plus a total line. The shopping list buys exactly these amounts.
 - [~] D7. "Recalculate" re-plans with the downloaded prices after changing settings (no new download).
 - [~] D8. "Missing / outdated prices" list: every item (food or ingredient) with no price or a price older than
       the max price age, how old it is, and which foods it keeps out of the plan (most blocking first).
