@@ -27,6 +27,7 @@ public sealed class FoodCraftingBindings : BaseViewModel
     private Dictionary<string, FoodMarketPrice> _lastPrices;
     private Dictionary<string, decimal> _lastVolumes;
     private DateTime _lastDownloadUtc;
+    private FoodBankContents _lastBank;
 
     private FoodCraftingBindings()
     {
@@ -85,6 +86,17 @@ public sealed class FoodCraftingBindings : BaseViewModel
     public ObservableCollection<FoodItemOption> FoodItemOptions { get; } = [];
     public ObservableCollection<FoodMissingPriceRow> MissingPriceRows { get; } = [];
     public ObservableCollection<FoodFishSauceCraftRow> FishSauceCraftRows { get; } = [];
+
+    public string OwnedSummaryText
+    {
+        get;
+        private set
+        {
+            field = value;
+            OnPropertyChanged();
+        }
+    }
+    = string.Empty;
 
     public string FishSauceCraftSummaryText
     {
@@ -455,6 +467,11 @@ public sealed class FoodCraftingBindings : BaseViewModel
 
         StatusText = "Calculating...";
 
+        // Storage History is UI-bound: read the bank here, before going to the background thread.
+        var bank = settings.UseBankContents ? FoodOwnedItems.ReadBank(settings.City) : new FoodBankContents();
+        var owned = FoodOwnedItems.Combine(bank.Quantities, settings.ManualOwned);
+        _lastBank = bank;
+
         var result = await Task.Run(() =>
         {
             var nowUtc = DateTime.UtcNow;
@@ -481,7 +498,7 @@ public sealed class FoodCraftingBindings : BaseViewModel
                     }
                 }
 
-                evaluation = EvaluateAll(foods, settings, volumes, unitPrices, sauceRecipes, sauceReturnRate);
+                evaluation = EvaluateAll(foods, settings, volumes, unitPrices, sauceRecipes, sauceReturnRate, owned);
 
                 if (books.Count == 0)
                 {
@@ -490,7 +507,7 @@ public sealed class FoodCraftingBindings : BaseViewModel
 
                 var quantities = evaluation.Shopping
                     .GroupBy(x => x.UniqueName, StringComparer.OrdinalIgnoreCase)
-                    .ToDictionary(x => x.Key, x => x.Sum(y => y.SafeQuantityToBuy), StringComparer.OrdinalIgnoreCase);
+                    .ToDictionary(x => x.Key, x => x.Sum(y => y.QuantityToBuy), StringComparer.OrdinalIgnoreCase);
 
                 var nextPrices = books.ToDictionary(
                     x => x.Key,
@@ -512,7 +529,7 @@ public sealed class FoodCraftingBindings : BaseViewModel
                 .GroupBy(x => x.UniqueName, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(
                     x => x.Key,
-                    x => (Cost: FoodOrderBookCalculator.GetCost(books[x.Key], x.Sum(y => y.SafeQuantityToBuy)), books[x.Key].UpdatedUtc),
+                    x => (Cost: FoodOrderBookCalculator.GetCost(books[x.Key], x.Sum(y => y.QuantityToBuy)), books[x.Key].UpdatedUtc),
                     StringComparer.OrdinalIgnoreCase);
 
             var foodReturnRate = foods.Count > 0 ? _evaluator.GetFoodReturnRatePercent(foods[0], settings) : 0m;
@@ -544,7 +561,8 @@ public sealed class FoodCraftingBindings : BaseViewModel
         IReadOnlyDictionary<string, decimal> volumes,
         Dictionary<string, decimal> unitPrices,
         IReadOnlyDictionary<int, FishSauceRecipe> sauceRecipes,
-        decimal sauceReturnRate)
+        decimal sauceReturnRate,
+        IReadOnlyDictionary<string, int> owned)
     {
         var sauceCosts = new Dictionary<int, FishSauceCost>();
         var sauceMissing = new Dictionary<int, IReadOnlyList<string>>();
@@ -579,7 +597,7 @@ public sealed class FoodCraftingBindings : BaseViewModel
         var plan = settings.IsPlanLocked
             ? FoodPlanner.FromLocked(candidates, settings.LockedPlan, planInput)
             : FoodPlanner.Plan(candidates, planInput);
-        var shopping = FoodShoppingListBuilder.BuildWithFishSauce(plan, sauceRecipes, unitPrices, sauceReturnRate, settings.ShoppingSafetyMargin);
+        var shopping = FoodShoppingListBuilder.BuildWithFishSauce(plan, sauceRecipes, unitPrices, sauceReturnRate, settings.ShoppingSafetyMargin, owned);
 
         return new EvaluationResult(candidates, plan, shopping.Items, sauceCosts, shopping.FishSauceCrafts);
     }
@@ -617,13 +635,17 @@ public sealed class FoodCraftingBindings : BaseViewModel
                 Name = row.Name,
                 Icon = row.Icon,
                 BookCost = hasBook ? book.Cost : null,
-                BookUpdatedUtc = hasBook ? book.UpdatedUtc : default
+                BookUpdatedUtc = hasBook ? book.UpdatedUtc : default,
+                BankOwned = _lastBank?.Quantities.GetValueOrDefault(row.Item.UniqueName) ?? 0,
+                ManualOwnedStore = settings.ManualOwned
             });
         }
 
+        UpdateOwnedSummary(settings);
+
         var covered = ShoppingRows.Count(x => x.BookCost != null);
         var shortItems = ShoppingRows.Count(x => x.IsShort);
-        var realCost = ShoppingRows.Sum(x => x.BookCost?.EstimatedTotalCost ?? x.Item.SafeCost);
+        var realCost = ShoppingRows.Sum(x => x.BookCost?.EstimatedTotalCost ?? x.Item.ToBuyCost);
 
         if (!settings.UseOrderBooks)
         {
@@ -641,6 +663,34 @@ public sealed class FoodCraftingBindings : BaseViewModel
         }
     }
 
+    private void UpdateOwnedSummary(FoodCraftingSettings settings)
+    {
+        var bank = _lastBank ?? new FoodBankContents();
+        var city = Locations.GetDisplayName(settings.City);
+        var ownedRows = ShoppingRows.Where(x => x.Item.OwnedQuantity > 0).ToList();
+        var saved = ownedRows.Sum(x => x.Item.OwnedQuantity * x.Item.UnitPrice);
+
+        string bankText;
+        if (!settings.UseBankContents)
+        {
+            bankText = "Bank contents are not used.";
+        }
+        else if (bank.ContainerCount == 0)
+        {
+            bankText = $"No bank chests of {city} in Storage History yet. Open your bank chests in-game while this tool runs.";
+        }
+        else
+        {
+            var age = bank.OldestUpdateUtc == default ? "unknown" : FoodMissingPriceItem.FormatMinutes((DateTime.UtcNow - bank.OldestUpdateUtc).TotalMinutes);
+            bankText = $"Bank of {city}: {bank.ContainerCount} chests read (oldest seen {age}).";
+        }
+
+        OwnedSummaryText = bankText + (ownedRows.Count > 0
+            ? $" Already owned covers {ownedRows.Count} items (≈ {saved:N0} silver less to buy)."
+            : " Nothing from the shopping list is owned yet.")
+            + " Type extra owned amounts (inventory etc.) in \"Owned (extra)\", then press Recalculate.";
+    }
+
     private void ApplyFishSauceCrafts(IReadOnlyList<FoodFishSauceCraft> crafts)
     {
         FishSauceCraftRows.Clear();
@@ -650,7 +700,9 @@ public sealed class FoodCraftingBindings : BaseViewModel
             {
                 Craft = craft,
                 Name = ItemController.GetItemByUniqueName(craft.UniqueName)?.LocalizedName ?? craft.UniqueName,
-                Icon = GetIcon(craft.UniqueName)
+                Icon = GetIcon(craft.UniqueName),
+                BankOwned = _lastBank?.Quantities.GetValueOrDefault(craft.UniqueName) ?? 0,
+                ManualOwnedStore = Settings?.ManualOwned
             });
         }
 
@@ -860,6 +912,16 @@ public sealed class FoodFishSauceCraftRow
     public string Name { get; init; }
     public BitmapImage Icon { get; init; }
 
+    public int BankOwned { get; init; }
+    public Dictionary<string, int> ManualOwnedStore { get; init; }
+
+    /// <summary>Sauces owned outside the bank, typed in by hand. Takes effect on the next Recalculate.</summary>
+    public int ManualOwned
+    {
+        get => FoodOwnedRowHelper.Get(ManualOwnedStore, Craft?.UniqueName);
+        set => FoodOwnedRowHelper.Set(ManualOwnedStore, Craft?.UniqueName, value);
+    }
+
     public int ChoppedFish => GetQuantity("FISHCHOPS");
     public int Seaweed => GetQuantity("SEAWEED");
 
@@ -872,6 +934,31 @@ public sealed class FoodFishSauceCraftRow
         return Craft?.Ingredients
             .Where(x => x.UniqueName?.Contains(part, StringComparison.OrdinalIgnoreCase) == true)
             .Sum(x => x.Quantity) ?? 0;
+    }
+}
+
+internal static class FoodOwnedRowHelper
+{
+    public static int Get(Dictionary<string, int> store, string uniqueName)
+    {
+        return store != null && !string.IsNullOrWhiteSpace(uniqueName) && store.TryGetValue(uniqueName, out var value) ? value : 0;
+    }
+
+    public static void Set(Dictionary<string, int> store, string uniqueName, int value)
+    {
+        if (store == null || string.IsNullOrWhiteSpace(uniqueName))
+        {
+            return;
+        }
+
+        if (value > 0)
+        {
+            store[uniqueName] = value;
+        }
+        else
+        {
+            store.Remove(uniqueName);
+        }
     }
 }
 
@@ -903,6 +990,19 @@ public sealed class FoodShoppingRow
         ? "-"
         : BookCost.AverageUnitPrice.ToString("N1", CultureInfo.CurrentCulture)
           + " (max " + BookCost.MaxPrice.ToString("N0", CultureInfo.CurrentCulture) + ")";
+
+    /// <summary>Quantity in the city's bank (Storage History).</summary>
+    public int BankOwned { get; init; }
+
+    /// <summary>Settings dictionary for hand-entered owned amounts (shared, saved with the settings).</summary>
+    public Dictionary<string, int> ManualOwnedStore { get; init; }
+
+    /// <summary>Owned outside the bank, typed in by hand. Takes effect on the next Recalculate.</summary>
+    public int ManualOwned
+    {
+        get => FoodOwnedRowHelper.Get(ManualOwnedStore, Item?.UniqueName);
+        set => FoodOwnedRowHelper.Set(ManualOwnedStore, Item?.UniqueName, value);
+    }
 
     public string BookAgeText => BookCost == null ? "Not captured" : FoodMissingPriceItem.FormatMinutes((DateTime.UtcNow - BookUpdatedUtc).TotalMinutes);
     public bool IsShort => BookCost is { IsEnoughListed: false };

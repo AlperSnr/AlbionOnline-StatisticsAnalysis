@@ -45,6 +45,12 @@ public class FoodCraftingSettings
 
     public List<FoodLockedPlanEntry> LockedPlan { get; set; } = [];
 
+    /// <summary>Subtract the bank contents of the city (from Storage History) from the shopping list.</summary>
+    public bool UseBankContents { get; set; } = true;
+
+    /// <summary>Quantities owned outside the bank (inventory etc.), entered by hand per item.</summary>
+    public Dictionary<string, int> ManualOwned { get; set; } = new(System.StringComparer.OrdinalIgnoreCase);
+
     public FoodDestinyBoard DestinyBoard { get; set; } = new();
 
     public bool IsEnchantmentIncluded(int level)

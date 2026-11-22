@@ -6,7 +6,7 @@ Status legend: `[ ]` planned · `[~]` built, needs check · `[x]` done · `[?]` 
 Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodCrafting/` · Tests: `src/StatisticsAnalysisTool.UnitTests/Crafting/FoodCraftingTests.cs`
 
 > **Build status (2026-11-22):** .NET 10 SDK 10.0.404 installed. Solution builds with 0 errors (no new warnings);
-> all 252 unit tests pass. Used for real batches by the user (sell orders, plan lock, safety margin confirmed).
+> all 258 unit tests pass. Used for real batches by the user (sell orders, plan lock, safety margin confirmed).
 
 ## Decisions
 - Only **food** is in scope. Non-food crafting differences are ignored.
@@ -90,7 +90,9 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
 - [x] Q5. Station fee entered manually → OK.
 
 ## E. Later / ideas
-- [?] E1. Subtract ingredients already owned from the shopping list.
+- [~] E1. Subtract owned items: bank chests of the city from Storage History (read-only, no upstream change;
+      guild chests skipped) + hand-entered "Owned (extra)" per item. Shopping list shows To buy / Need (safe) / In bank;
+      owned fish sauce lowers the sauce crafts. Real cost from sell orders uses the quantity still to buy.
 - [?] E2. Read destiny board levels directly from game packets (unknown if the game sends them).
 - [?] E3. Use live in-game sales history from the Black Market tab instead of AODP volume.
 - [?] E4. Option: sell food instantly to buy orders (no setup fee) and/or buy ingredients via buy orders.

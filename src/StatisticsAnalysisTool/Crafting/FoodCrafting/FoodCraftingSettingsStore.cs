@@ -2,6 +2,7 @@ using Serilog;
 using StatisticsAnalysisTool.Common;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace StatisticsAnalysisTool.Crafting.FoodCrafting;
@@ -87,6 +88,10 @@ public static class FoodCraftingSettingsStore
         settings.MaxInvestment = Math.Max(0m, settings.MaxInvestment);
         settings.OrderBookMaxAgeMinutes = Math.Max(0, settings.OrderBookMaxAgeMinutes);
         settings.ShoppingSafetyMargin = Math.Clamp(settings.ShoppingSafetyMargin, 0m, 5m);
+        settings.ManualOwned = (settings.ManualOwned ?? new Dictionary<string, int>())
+            .Where(x => !string.IsNullOrWhiteSpace(x.Key) && x.Value > 0)
+            .GroupBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.Sum(y => y.Value), StringComparer.OrdinalIgnoreCase);
         settings.LockedPlan ??= [];
         settings.LockedPlan.RemoveAll(x => x == null || string.IsNullOrWhiteSpace(x.UniqueName) || x.Crafts <= 0);
         if (settings.LockedPlan.Count == 0)

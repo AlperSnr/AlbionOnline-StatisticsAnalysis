@@ -101,6 +101,11 @@
                             <TextBlock Text="Safety margin (σ)" Style="{StaticResource Food.Label}" />
                             <TextBox Text="{Binding Settings.ShoppingSafetyMargin, Mode=TwoWay}" Style="{StaticResource Food.Input}" />
                         </StackPanel>
+                        <StackPanel Style="{StaticResource Food.Field}"
+                                    ToolTip="Subtract what is in your bank chests of the selected city. The chests are read from Storage History, which is filled whenever you open a bank chest in-game while this tool runs. Guild chests are not used.">
+                            <TextBlock Text="Already owned" Style="{StaticResource Food.Label}" />
+                            <CheckBox Content="Use bank contents" IsChecked="{Binding Settings.UseBankContents, Mode=TwoWay}" VerticalAlignment="Center" />
+                        </StackPanel>
                         <StackPanel Style="{StaticResource Food.Field}" ToolTip="Captured sell orders older than this are ignored. 0 = no limit.">
                             <TextBlock Text="Max order age (min)" Style="{StaticResource Food.Label}" />
                             <TextBox Text="{Binding Settings.OrderBookMaxAgeMinutes, Mode=TwoWay}" Style="{StaticResource Food.Input}" />
@@ -399,7 +404,8 @@
 
             <!-- Shopping list -->
             <TextBlock Text="Shopping list" Style="{StaticResource Food.SectionTitle}" />
-            <TextBlock Text="{Binding OrderBookSummaryText}" Foreground="{StaticResource SolidColorBrush.Text.2}" Margin="0,0,0,4" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding OrderBookSummaryText}" Foreground="{StaticResource SolidColorBrush.Text.2}" Margin="0,0,0,2" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding OwnedSummaryText}" Foreground="{StaticResource SolidColorBrush.Text.2}" Margin="0,0,0,4" TextWrapping="Wrap" />
             <ListView ItemsSource="{Binding ShoppingRows}" MinHeight="80" Margin="0,0,0,10">
                 <ListView.View>
                     <GridView>
@@ -412,11 +418,28 @@
                         </GridViewColumn>
                         <GridViewColumn Header="Item" Width="230" DisplayMemberBinding="{Binding Name}" />
                         <GridViewColumn Header="For" Width="85" DisplayMemberBinding="{Binding UsageText}" />
-                        <GridViewColumn Header="Buy (safe)" Width="90">
+                        <GridViewColumn Header="To buy" Width="80">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding Item.SafeQuantityToBuy, StringFormat=N0}" FontWeight="Bold"
+                                    <TextBlock Text="{Binding Item.QuantityToBuy, StringFormat=N0}" FontWeight="Bold"
+                                               ToolTip="Needed (safe) minus what you already own." />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="Need (safe)" Width="90">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Item.SafeQuantityToBuy, StringFormat=N0}"
                                                ToolTip="{Binding Item.SafetyExtra, StringFormat='Expected + {0:N0} extra against bad luck with returns'}" />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="In bank" Width="70" DisplayMemberBinding="{Binding BankOwned, StringFormat=N0}" />
+                        <GridViewColumn Header="Owned (extra)" Width="100">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox Text="{Binding ManualOwned, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="80"
+                                             ToolTip="Owned outside the bank (inventory, other chests). Press Recalculate after typing." />
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
@@ -457,6 +480,16 @@
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
                         <GridViewColumn Header="Sauce" Width="200" DisplayMemberBinding="{Binding Name}" />
+                        <GridViewColumn Header="Needed" Width="70" DisplayMemberBinding="{Binding Craft.SaucesNeeded, StringFormat=N0}" />
+                        <GridViewColumn Header="In bank" Width="70" DisplayMemberBinding="{Binding BankOwned, StringFormat=N0}" />
+                        <GridViewColumn Header="Owned (extra)" Width="100">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox Text="{Binding ManualOwned, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="80"
+                                             ToolTip="Sauces owned outside the bank. Press Recalculate after typing." />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
                         <GridViewColumn Header="Sauces to craft" Width="115">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
