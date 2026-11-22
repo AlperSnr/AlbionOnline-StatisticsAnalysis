@@ -81,6 +81,12 @@ public sealed class FoodCandidateEvaluator
         return CraftingLocationData.GetExpectedReturnRatePercent(bonus, true);
     }
 
+    /// <summary>
+    /// Verified in-game: T1 and T2 recipes cost no station fee. Fish sauce is T1, so it is free to craft
+    /// (its crafted cost never includes a fee).
+    /// </summary>
+    public static bool HasStationFee(int tier) => tier > 2;
+
     /// <summary>Verified in-game: crafting fish sauce has no focus option and returns nothing (0% RRR) in every city.</summary>
     public const decimal FishSauceReturnRatePercent = 0m;
 
@@ -157,7 +163,7 @@ public sealed class FoodCandidateEvaluator
             UsesFocus = true,
             OutputUnitPrice = sellPrice,
             StationFee = settings.StationFeePerHundredNutrition,
-            NutritionConsumedPerRun = _stationFeeService.GetNutritionConsumedPerRun(item),
+            NutritionConsumedPerRun = HasStationFee(item.Tier) ? _stationFeeService.GetNutritionConsumedPerRun(item) : 0m,
             SalesTaxPercent = settings.SalesTaxPercent,
             SetupFeePercent = settings.SetupFeePercent,
             OutputUnitWeight = ItemController.GetWeight(item.FullItemInformation),

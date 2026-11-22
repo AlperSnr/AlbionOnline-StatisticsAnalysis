@@ -29,6 +29,8 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
   FCE = mastery × 30 + every spec level × 30 (all foods) + own spec level × 250 extra (own spec = 280 / level).
   The game shows focus rounded (34) but really uses decimals (33.8 × 5 crafts = 169).
 - **Fish sauce:** no focus toggle and **0% return rate** when crafted (verified in-game).
+- **Station fee:** T1 and T2 recipes cost no station fee (verified in-game) → fish sauce (T1) is free to craft,
+  T1/T2 foods are calculated without a fee.
 - City crafting bonus is 18% everywhere; **Caerleon has +15% for food**. Brecilien with focus = 43.5% RRR (matches the sheet).
 - City cluster ids: Thetford 0000, Lymhurst 1000, Bridgewatch 2000, Martlock 3004, Fort Sterling 4000, Caerleon 3003, Brecilien 5000.
 

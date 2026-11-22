@@ -112,6 +112,15 @@ public class FoodCraftingTests
         CraftingLocationData.GetExpectedReturnRatePercent(18m, false).Should().Be(15.25m);
     }
 
+    [TestCase(1, false)]
+    [TestCase(2, false)]
+    [TestCase(3, true)]
+    [TestCase(8, true)]
+    public void HasStationFee_OnlyFromTierThree(int tier, bool expected)
+    {
+        FoodCandidateEvaluator.HasStationFee(tier).Should().Be(expected);
+    }
+
     #endregion
 
     #region Fish sauce
