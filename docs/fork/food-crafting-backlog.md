@@ -62,6 +62,7 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
 - [~] D4. Plan table + summary tiles (focus used/left, investment, revenue, profit, profit/focus, items).
 - [~] D5. Shopping list (expected and no-return quantities), crafted-sauce ingredients listed separately.
 - [~] D6. Sales tax + setup fee + station fee included.
+- [~] D9. Max investment (silver) limit for the plan; 0 = no limit. Leftover silver goes to cheaper foods.
 - [~] D7. "Recalculate" re-plans with the downloaded prices after changing settings (no new download).
 - [~] D8. "Missing / outdated prices" list: every item (food or ingredient) with no price or a price older than
       the max price age, how old it is, and which foods it keeps out of the plan (most blocking first).
@@ -85,6 +86,11 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
 - [?] E7. Copy the plan / shopping list to clipboard.
 - [?] E8. "Open in Item Crafting" for one food to see the detailed breakdown.
 - [?] E9. Account for re-crafting the returned resources more precisely (variance, rounding per craft).
+- [?] E10. Real cost from the sell-order book (postponed by user). AODP only gives the cheapest price, not amounts.
+      Plan: keep the orders the game sends when a market page is opened (`AuctionGetOffers`), walk them cheapest-first
+      for each shopping item, show "listed × qty" vs "real cost", warn when not enough is listed.
+      Needs a 1-line `[FORK]` hook in upstream `Network/Handler/AuctionGetOffersResponseHandler.cs`
+      (only one handler per opcode). Alternative without upstream change: AODP NATS order stream (more work).
 
 ## Merge-risk log
 | Change | Upstream file | Risk |
