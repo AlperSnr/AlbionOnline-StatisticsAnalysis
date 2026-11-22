@@ -46,6 +46,8 @@ public sealed class FoodCraftingBindings : BaseViewModel
             OnPropertyChanged(nameof(FishSauceLevel1Mode));
             OnPropertyChanged(nameof(FishSauceLevel2Mode));
             OnPropertyChanged(nameof(FishSauceLevel3Mode));
+            OnPropertyChanged(nameof(IsPlanLocked));
+            OnPropertyChanged(nameof(IsPlanUnlocked));
         }
     }
 
@@ -160,6 +162,48 @@ public sealed class FoodCraftingBindings : BaseViewModel
     }
 
     public bool IsIdle => !IsBusy;
+
+    /// <summary>Locks the current plan (foods + crafts). Unlocking lets the planner choose again.</summary>
+    public bool IsPlanLocked
+    {
+        get => Settings?.IsPlanLocked ?? false;
+        set
+        {
+            if (Settings == null || value == Settings.IsPlanLocked)
+            {
+                return;
+            }
+
+            if (value)
+            {
+                var entries = Plan?.Entries ?? [];
+                if (entries.Count == 0)
+                {
+                    StatusText = "Nothing to lock yet. Create a plan first.";
+                    OnPropertyChanged();
+                    return;
+                }
+
+                Settings.LockedPlan = entries
+                    .Select(x => new FoodLockedPlanEntry { UniqueName = x.Candidate.UniqueName, Crafts = x.Crafts })
+                    .ToList();
+                Settings.IsPlanLocked = true;
+                StatusText = $"PLAN LOCKED ({entries.Count} foods). Prices and the shopping list still update; the foods and crafts stay.";
+            }
+            else
+            {
+                Settings.IsPlanLocked = false;
+                Settings.LockedPlan = [];
+                StatusText = "Plan unlocked. Press \"Recalculate\" to plan again.";
+            }
+
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsPlanUnlocked));
+            _ = SaveSettingsAsync();
+        }
+    }
+
+    public bool IsPlanUnlocked => !IsPlanLocked;
 
     #region Focus check (calibration)
 
@@ -434,7 +478,7 @@ public sealed class FoodCraftingBindings : BaseViewModel
 
                 var quantities = evaluation.Shopping
                     .GroupBy(x => x.UniqueName, StringComparer.OrdinalIgnoreCase)
-                    .ToDictionary(x => x.Key, x => x.Sum(y => y.NetQuantityToBuy), StringComparer.OrdinalIgnoreCase);
+                    .ToDictionary(x => x.Key, x => x.Sum(y => y.SafeQuantityToBuy), StringComparer.OrdinalIgnoreCase);
 
                 var nextPrices = books.ToDictionary(
                     x => x.Key,
@@ -456,7 +500,7 @@ public sealed class FoodCraftingBindings : BaseViewModel
                 .GroupBy(x => x.UniqueName, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(
                     x => x.Key,
-                    x => (Cost: FoodOrderBookCalculator.GetCost(books[x.Key], x.Sum(y => y.NetQuantityToBuy)), books[x.Key].UpdatedUtc),
+                    x => (Cost: FoodOrderBookCalculator.GetCost(books[x.Key], x.Sum(y => y.SafeQuantityToBuy)), books[x.Key].UpdatedUtc),
                     StringComparer.OrdinalIgnoreCase);
 
             var foodReturnRate = foods.Count > 0 ? _evaluator.GetFoodReturnRatePercent(foods[0], settings) : 0m;
@@ -510,14 +554,17 @@ public sealed class FoodCraftingBindings : BaseViewModel
         };
 
         var candidates = foods.Select(x => _evaluator.Evaluate(x, context)).ToList();
-        var plan = FoodPlanner.Plan(candidates, new FoodPlanInput
+        var planInput = new FoodPlanInput
         {
             FocusBudget = settings.FocusBudget,
             MaxInvestment = settings.MaxInvestment,
             DailyVolumeDivisor = settings.DailyVolumeDivisor,
             MinProfitPerFocus = settings.MinProfitPerFocus
-        });
-        var shopping = FoodShoppingListBuilder.Build(plan, sauceRecipes, unitPrices, sauceReturnRate);
+        };
+        var plan = settings.IsPlanLocked
+            ? FoodPlanner.FromLocked(candidates, settings.LockedPlan, planInput)
+            : FoodPlanner.Plan(candidates, planInput);
+        var shopping = FoodShoppingListBuilder.Build(plan, sauceRecipes, unitPrices, sauceReturnRate, settings.ShoppingSafetyMargin);
 
         return new EvaluationResult(candidates, plan, shopping, sauceCosts);
     }
@@ -561,7 +608,7 @@ public sealed class FoodCraftingBindings : BaseViewModel
 
         var covered = ShoppingRows.Count(x => x.BookCost != null);
         var shortItems = ShoppingRows.Count(x => x.IsShort);
-        var realCost = ShoppingRows.Sum(x => x.BookCost?.EstimatedTotalCost ?? x.Item.NetCost);
+        var realCost = ShoppingRows.Sum(x => x.BookCost?.EstimatedTotalCost ?? x.Item.SafeCost);
 
         if (!settings.UseOrderBooks)
         {
@@ -641,7 +688,8 @@ public sealed class FoodCraftingBindings : BaseViewModel
         var valid = candidates.Count(x => x.IsValid);
         var missing = candidates.Count - valid;
         var age = _lastDownloadUtc == default ? string.Empty : $" Prices downloaded {_lastDownloadUtc.ToLocalTime():t}.";
-        StatusText = $"{candidates.Count} foods checked: {valid} with prices, {missing} skipped (see \"Missing / outdated prices\"), "
+        var lockText = plan.IsLocked ? $"PLAN LOCKED ({plan.Entries.Count} foods, unlock to re-plan). " : string.Empty;
+        StatusText = lockText + $"{candidates.Count} foods checked: {valid} with prices, {missing} skipped (see \"Missing / outdated prices\"), "
                      + $"{Candidates.Count} profitable. Plan: {plan.Entries.Count} foods, {plan.TotalFocus:N0} of {plan.FocusBudget:N0} focus"
                      + (plan.MaxInvestment > 0m ? $", {plan.TotalInvestment:N0} of {plan.MaxInvestment:N0} silver" : string.Empty)
                      + (plan.IsLimitedByInvestment ? " (limited by max investment)" : string.Empty)
@@ -651,8 +699,11 @@ public sealed class FoodCraftingBindings : BaseViewModel
 
     private (List<Item> Foods, List<string> Names) CollectItemNames(FoodCraftingSettings settings)
     {
+        var lockedNames = settings.IsPlanLocked
+            ? new HashSet<string>(settings.LockedPlan.Select(x => x.UniqueName), StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var foods = _catalog.GetFoodItems()
-            .Where(x => settings.IsEnchantmentIncluded(x.Level))
+            .Where(x => settings.IsEnchantmentIncluded(x.Level) || lockedNames.Contains(x.UniqueName))
             .ToList();
 
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

@@ -69,6 +69,11 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
       Ingredient prices then come from the order book: the plan is re-calculated up to 4 times with the average price
       for the planned quantity (buying a lot pushes the price up, e.g. Avalonian Energy). Shopping list shows
       listed amount (red when short), real average/max price, real cost and order age. Settings: on/off, max order age (120 min).
+- [~] D11. Lock plan: the lock button keeps the planned foods + crafts fixed (saved, survives restart).
+      Prices, profit and the shopping list still update; locked foods are kept even if filters change.
+- [~] D12. Shopping safety margin: returns are random, so 'Buy (safe)' = expected + N standard deviations
+      (binomial per unit, default 2 = about 98% enough), never more than the no-return quantity.
+      Order-book real cost uses the safe quantity.
 - [~] D7. "Recalculate" re-plans with the downloaded prices after changing settings (no new download).
 - [~] D8. "Missing / outdated prices" list: every item (food or ingredient) with no price or a price older than
       the max price age, how old it is, and which foods it keeps out of the plan (most blocking first).

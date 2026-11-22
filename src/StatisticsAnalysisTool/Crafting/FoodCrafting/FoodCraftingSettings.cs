@@ -37,6 +37,14 @@ public class FoodCraftingSettings
     public FishSauceMode FishSauceLevel2Mode { get; set; } = FishSauceMode.Cheapest;
     public FishSauceMode FishSauceLevel3Mode { get; set; } = FishSauceMode.Cheapest;
 
+    /// <summary>Extra to buy against bad luck with returns, in standard deviations (0 = none, 2 ≈ 98% enough).</summary>
+    public decimal ShoppingSafetyMargin { get; set; } = 2m;
+
+    /// <summary>When true, the planned foods and crafts stay fixed; only prices and the shopping list update.</summary>
+    public bool IsPlanLocked { get; set; }
+
+    public List<FoodLockedPlanEntry> LockedPlan { get; set; } = [];
+
     public FoodDestinyBoard DestinyBoard { get; set; } = new();
 
     public bool IsEnchantmentIncluded(int level)
@@ -77,6 +85,12 @@ public class FoodCraftingSettings
                 break;
         }
     }
+}
+
+public class FoodLockedPlanEntry
+{
+    public string UniqueName { get; set; }
+    public int Crafts { get; set; }
 }
 
 public class FoodDestinyBoard

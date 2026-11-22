@@ -86,6 +86,13 @@ public static class FoodCraftingSettingsStore
 
         settings.MaxInvestment = Math.Max(0m, settings.MaxInvestment);
         settings.OrderBookMaxAgeMinutes = Math.Max(0, settings.OrderBookMaxAgeMinutes);
+        settings.ShoppingSafetyMargin = Math.Clamp(settings.ShoppingSafetyMargin, 0m, 5m);
+        settings.LockedPlan ??= [];
+        settings.LockedPlan.RemoveAll(x => x == null || string.IsNullOrWhiteSpace(x.UniqueName) || x.Crafts <= 0);
+        if (settings.LockedPlan.Count == 0)
+        {
+            settings.IsPlanLocked = false;
+        }
 
         return settings;
     }

@@ -96,6 +96,11 @@
                             <TextBlock Text="In-game sell orders" Style="{StaticResource Food.Label}" />
                             <CheckBox Content="Use for real cost" IsChecked="{Binding Settings.UseOrderBooks, Mode=TwoWay}" VerticalAlignment="Center" />
                         </StackPanel>
+                        <StackPanel Style="{StaticResource Food.Field}"
+                                    ToolTip="Returns are random. With few crafts you can get less back than expected and run out. Buys this many standard deviations extra (0 = none, 1 ≈ 84%, 2 ≈ 98% enough). Never more than the no-return quantity.">
+                            <TextBlock Text="Safety margin (σ)" Style="{StaticResource Food.Label}" />
+                            <TextBox Text="{Binding Settings.ShoppingSafetyMargin, Mode=TwoWay}" Style="{StaticResource Food.Input}" />
+                        </StackPanel>
                         <StackPanel Style="{StaticResource Food.Field}" ToolTip="Captured sell orders older than this are ignored. 0 = no limit.">
                             <TextBlock Text="Max order age (min)" Style="{StaticResource Food.Label}" />
                             <TextBox Text="{Binding Settings.OrderBookMaxAgeMinutes, Mode=TwoWay}" Style="{StaticResource Food.Input}" />
@@ -258,6 +263,20 @@
                         ToolTip="Use the downloaded prices again after changing settings (no download)." />
                 <Button Content="Cancel" Width="80" Height="28" Margin="6,0,0,0" Command="{Binding CancelCommand}" IsEnabled="{Binding IsBusy}"
                         Style="{StaticResource Style.Button.Neutral}" />
+                <ToggleButton Width="110" Height="28" Margin="12,0,0,0" IsChecked="{Binding IsPlanLocked, Mode=TwoWay}" IsEnabled="{Binding IsIdle}"
+                              ToolTip="Lock: keep exactly these foods and crafts (also after restart). Prices and the shopping list still update. Unlock to plan again.">
+                    <ToggleButton.Style>
+                        <Style TargetType="ToggleButton" BasedOn="{StaticResource App.FilterToggleButton}">
+                            <Setter Property="Content" Value="🔓 Lock plan" />
+                            <Style.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter Property="Content" Value="🔒 Locked" />
+                                    <Setter Property="FontWeight" Value="Bold" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ToggleButton.Style>
+                </ToggleButton>
                 <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource SolidColorBrush.Text.2}" VerticalAlignment="Center" Margin="10,0,0,0" TextWrapping="Wrap" MaxWidth="900" />
             </StackPanel>
             <TextBlock Text="{Binding ReturnRateText}" Foreground="{StaticResource SolidColorBrush.Text.3}" Margin="0,0,0,2" />
@@ -393,6 +412,14 @@
                         </GridViewColumn>
                         <GridViewColumn Header="Item" Width="230" DisplayMemberBinding="{Binding Name}" />
                         <GridViewColumn Header="For" Width="85" DisplayMemberBinding="{Binding UsageText}" />
+                        <GridViewColumn Header="Buy (safe)" Width="90">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Item.SafeQuantityToBuy, StringFormat=N0}" FontWeight="Bold"
+                                               ToolTip="{Binding Item.SafetyExtra, StringFormat='Expected + {0:N0} extra against bad luck with returns'}" />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
                         <GridViewColumn Header="Buy (expected)" Width="110" DisplayMemberBinding="{Binding Item.NetQuantityToBuy, StringFormat=N0}" />
                         <GridViewColumn Header="Buy (no returns)" Width="120" DisplayMemberBinding="{Binding Item.GrossQuantityToBuy, StringFormat=N0}" />
                         <GridViewColumn Header="Unit price" Width="90" DisplayMemberBinding="{Binding Item.UnitPrice, StringFormat=N0}" />

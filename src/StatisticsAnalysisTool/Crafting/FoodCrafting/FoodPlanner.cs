@@ -38,6 +38,9 @@ public sealed class FoodPlan
     /// <summary>True when at least one food got fewer crafts because the investment limit was reached.</summary>
     public bool IsLimitedByInvestment { get; init; }
 
+    /// <summary>True when the plan was rebuilt from a locked list instead of planned.</summary>
+    public bool IsLocked { get; init; }
+
     public decimal TotalFocus => Entries.Sum(x => x.Focus);
     public decimal TotalProfit => Entries.Sum(x => x.Profit);
     public decimal TotalInvestment => Entries.Sum(x => x.Investment);
@@ -73,6 +76,38 @@ public static class FoodPlanner
         var divisor = Math.Max(1m, dailyVolumeDivisor);
         var maxItems = Math.Floor(candidate.DailyVolume / divisor);
         return (int) Math.Floor(maxItems / Math.Max(1, candidate.AmountCrafted));
+    }
+
+    /// <summary>
+    /// Re-builds a locked plan: same foods and crafts, with the newly evaluated prices.
+    /// Foods that are not in the candidates any more are skipped.
+    /// </summary>
+    public static FoodPlan FromLocked(IEnumerable<FoodCandidate> candidates, IEnumerable<FoodLockedPlanEntry> locked, FoodPlanInput input)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        var byName = (candidates ?? [])
+            .Where(x => x != null && !string.IsNullOrWhiteSpace(x.UniqueName))
+            .GroupBy(x => x.UniqueName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
+
+        var entries = (locked ?? [])
+            .Where(x => x != null && x.Crafts > 0 && byName.ContainsKey(x.UniqueName ?? string.Empty))
+            .Select(x => new FoodPlanEntry
+            {
+                Candidate = byName[x.UniqueName],
+                Crafts = x.Crafts,
+                MaxCrafts = GetMaxCrafts(byName[x.UniqueName], input.DailyVolumeDivisor)
+            })
+            .ToList();
+
+        return new FoodPlan
+        {
+            Entries = entries,
+            FocusBudget = Math.Max(0m, input.FocusBudget),
+            MaxInvestment = Math.Max(0m, input.MaxInvestment),
+            IsLocked = true
+        };
     }
 
     /// <summary>
