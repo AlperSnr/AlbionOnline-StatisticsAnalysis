@@ -5,8 +5,8 @@ Status legend: `[ ]` planned · `[~]` built, needs check · `[x]` done · `[?]` 
 
 Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodCrafting/` · Tests: `src/StatisticsAnalysisTool.UnitTests/Crafting/FoodCraftingTests.cs`
 
-> **Build status:** written without a local build (no .NET 10 SDK on this PC yet).
-> First step: install the .NET 10 SDK, then `dotnet build` + `dotnet test` in `src/`.
+> **Build status (2026-11-22):** .NET 10 SDK 10.0.404 installed. Solution builds with 0 errors (no new warnings);
+> all 223 unit tests pass, including the 26 food crafting tests. Not yet tried in the running app.
 
 ## Decisions
 - Only **food** is in scope. Non-food crafting differences are ignored.
