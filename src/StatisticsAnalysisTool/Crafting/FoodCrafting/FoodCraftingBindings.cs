@@ -81,6 +81,18 @@ public sealed class FoodCraftingBindings : BaseViewModel
     public ObservableCollection<FoodShoppingRow> ShoppingRows { get; } = [];
     public ObservableCollection<FishSauceRow> FishSauceRows { get; } = [];
     public ObservableCollection<FoodItemOption> FoodItemOptions { get; } = [];
+    public ObservableCollection<FoodMissingPriceRow> MissingPriceRows { get; } = [];
+
+    public string MissingPriceSummaryText
+    {
+        get;
+        private set
+        {
+            field = value;
+            OnPropertyChanged();
+        }
+    }
+    = "Missing / outdated prices";
 
     public FoodPlan Plan
     {
@@ -171,6 +183,8 @@ public sealed class FoodCraftingBindings : BaseViewModel
     public ICommand CancelCommand => field ??= new CommandHandler(_ => _cancellationTokenSource?.Cancel(), true);
 
     public ICommand UpdateCalibrationCommand => field ??= new CommandHandler(_ => UpdateCalibration(), true);
+
+    public ICommand CopyMissingPricesCommand => field ??= new CommandHandler(_ => CopyMissingPrices(), true);
 
     public async Task EnsureLoadedAsync()
     {
@@ -337,10 +351,12 @@ public sealed class FoodCraftingBindings : BaseViewModel
 
         var result = await Task.Run(() =>
         {
-            var unitPrices = GetUsablePrices(prices, settings.MaxPriceAgeHours);
+            var nowUtc = DateTime.UtcNow;
+            var unitPrices = FoodPriceCheck.GetUsablePrices(prices, nowUtc, settings.MaxPriceAgeHours);
             var sauceRecipes = _catalog.GetFishSauceRecipes();
             var sauceReturnRate = FoodCandidateEvaluator.FishSauceReturnRatePercent;
             var sauceCosts = new Dictionary<int, FishSauceCost>();
+            var sauceMissing = new Dictionary<int, IReadOnlyList<string>>();
 
             for (var level = 1; level <= 3; level++)
             {
@@ -349,6 +365,7 @@ public sealed class FoodCraftingBindings : BaseViewModel
                     ? FishSauceCalculator.GetCraftedCost(recipe, unitPrices, sauceReturnRate)
                     : 0m;
                 sauceCosts[level] = FishSauceCalculator.Resolve(level, settings.GetFishSauceMode(level), marketPrice, craftedCost);
+                sauceMissing[level] = FishSauceCalculator.GetMissingPriceItems(sauceCosts[level], recipe, unitPrices);
             }
 
             var context = new FoodEvaluationContext
@@ -356,7 +373,8 @@ public sealed class FoodCraftingBindings : BaseViewModel
                 Settings = settings,
                 UnitPrices = unitPrices,
                 DailyVolumes = volumes,
-                FishSauceCosts = sauceCosts
+                FishSauceCosts = sauceCosts,
+                FishSauceMissingItems = sauceMissing
             };
 
             var candidates = foods.Select(x => _evaluator.Evaluate(x, context)).ToList();
@@ -368,11 +386,13 @@ public sealed class FoodCraftingBindings : BaseViewModel
             });
             var shopping = FoodShoppingListBuilder.Build(plan, sauceRecipes, unitPrices, sauceReturnRate);
             var foodReturnRate = foods.Count > 0 ? _evaluator.GetFoodReturnRatePercent(foods[0], settings) : 0m;
+            var missingPrices = FoodMissingPriceListBuilder.Build(candidates, prices, nowUtc, settings.MaxPriceAgeHours);
 
-            return (candidates, plan, shopping, sauceCosts, sauceRecipes, sauceReturnRate, foodReturnRate);
+            return (candidates, plan, shopping, sauceCosts, sauceRecipes, sauceReturnRate, foodReturnRate, missingPrices);
         });
 
         ApplyResult(result.candidates, result.plan, result.shopping, result.sauceCosts, result.sauceReturnRate, result.foodReturnRate, settings);
+        ApplyMissingPrices(result.missingPrices, result.candidates.Count(x => !x.IsValid));
     }
 
     private void ApplyResult(
@@ -437,7 +457,7 @@ public sealed class FoodCraftingBindings : BaseViewModel
         var valid = candidates.Count(x => x.IsValid);
         var missing = candidates.Count - valid;
         var age = _lastDownloadUtc == default ? string.Empty : $" Prices downloaded {_lastDownloadUtc.ToLocalTime():t}.";
-        StatusText = $"{candidates.Count} foods checked: {valid} with prices, {missing} skipped (missing/old prices), "
+        StatusText = $"{candidates.Count} foods checked: {valid} with prices, {missing} skipped (see \"Missing / outdated prices\"), "
                      + $"{Candidates.Count} profitable. Plan: {plan.Entries.Count} foods, {plan.TotalFocus:N0} of {plan.FocusBudget:N0} focus.{age}";
         UpdateCalibration();
     }
@@ -470,27 +490,46 @@ public sealed class FoodCraftingBindings : BaseViewModel
         return (foods, names.ToList());
     }
 
-    private static Dictionary<string, decimal> GetUsablePrices(Dictionary<string, FoodMarketPrice> prices, int maxPriceAgeHours)
+    private void ApplyMissingPrices(IReadOnlyList<FoodMissingPriceItem> items, int skippedFoods)
     {
-        var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
-        var now = DateTime.UtcNow;
-
-        foreach (var (uniqueName, price) in prices)
+        MissingPriceRows.Clear();
+        foreach (var item in items)
         {
-            if (price == null || price.SellPriceMin == 0)
+            var gameItem = ItemController.GetItemByUniqueName(item.UniqueName);
+            MissingPriceRows.Add(new FoodMissingPriceRow
             {
-                continue;
-            }
-
-            if (maxPriceAgeHours > 0 && (now - price.SellPriceMinDateUtc).TotalHours > maxPriceAgeHours)
-            {
-                continue;
-            }
-
-            result[uniqueName] = price.SellPriceMin;
+                Item = item,
+                Name = gameItem?.LocalizedName ?? item.UniqueName,
+                TierText = gameItem == null ? string.Empty : $"T{gameItem.Tier}.{gameItem.Level}",
+                Icon = GetIcon(item.UniqueName)
+            });
         }
 
-        return result;
+        var noData = items.Count(x => x.Status == FoodPriceStatus.NoData);
+        var outdated = items.Count(x => x.Status == FoodPriceStatus.Outdated);
+        MissingPriceSummaryText = items.Count == 0
+            ? "Missing / outdated prices (none)"
+            : $"Missing / outdated prices: {items.Count} items ({noData} no price, {outdated} too old) keep {skippedFoods} foods out of the plan";
+    }
+
+    private void CopyMissingPrices()
+    {
+        if (MissingPriceRows.Count == 0)
+        {
+            return;
+        }
+
+        var text = string.Join(Environment.NewLine, MissingPriceRows
+            .Select(x => $"{x.Name} {x.TierText}	{x.Item.StatusText}	blocks {x.Item.BlockedFoodCount}"));
+
+        try
+        {
+            System.Windows.Clipboard.SetText(text);
+        }
+        catch (Exception e)
+        {
+            Log.Warning(e, "Missing food prices could not be copied to the clipboard");
+        }
     }
 
     private static BitmapImage GetIcon(string uniqueName)
@@ -522,6 +561,17 @@ public sealed class FoodCandidateRow
     public int MaxCrafts { get; init; }
     public int PlannedCrafts { get; init; }
     public string CategoryText => FoodCategories.GetDisplayName(Candidate?.Category);
+}
+
+public sealed class FoodMissingPriceRow
+{
+    public FoodMissingPriceItem Item { get; init; }
+    public string Name { get; init; }
+    public string TierText { get; init; }
+    public BitmapImage Icon { get; init; }
+    public string UsageText => Item?.IsFood == true ? "Food" : "Ingredient";
+    public string LastPriceText => Item?.LastSellPrice > 0m ? Item.LastSellPrice.ToString("N0", CultureInfo.CurrentCulture) : "-";
+    public string BlockedFoodsText => Item == null ? string.Empty : string.Join(", ", Item.BlockedFoodNames);
 }
 
 public sealed class FoodPlanRow

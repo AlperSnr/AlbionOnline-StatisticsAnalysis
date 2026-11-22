@@ -6,7 +6,7 @@ Status legend: `[ ]` planned · `[~]` built, needs check · `[x]` done · `[?]` 
 Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodCrafting/` · Tests: `src/StatisticsAnalysisTool.UnitTests/Crafting/FoodCraftingTests.cs`
 
 > **Build status (2026-11-22):** .NET 10 SDK 10.0.404 installed. Solution builds with 0 errors (no new warnings);
-> all 223 unit tests pass, including the 26 food crafting tests. Not yet tried in the running app.
+> all 233 unit tests pass. Tried in the running app by the user.
 
 ## Decisions
 - Only **food** is in scope. Non-food crafting differences are ignored.
@@ -63,6 +63,10 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
 - [~] D5. Shopping list (expected and no-return quantities), crafted-sauce ingredients listed separately.
 - [~] D6. Sales tax + setup fee + station fee included.
 - [~] D7. "Recalculate" re-plans with the downloaded prices after changing settings (no new download).
+- [~] D8. "Missing / outdated prices" list: every item (food or ingredient) with no price or a price older than
+      the max price age, how old it is, and which foods it keeps out of the plan (most blocking first).
+      For fish sauce it lists the sauce (Buy), its missing ingredients (Craft) or both (Cheapest).
+      "Copy list" copies it, so you can refresh those items in-game with the Albion Data Client.
 
 ## Open questions / things to check in-game
 - [x] Q1. Focus formula constants → verified (own spec 250 + 30).

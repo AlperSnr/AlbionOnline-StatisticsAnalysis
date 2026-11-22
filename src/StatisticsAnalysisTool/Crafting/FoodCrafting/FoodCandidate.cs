@@ -37,6 +37,9 @@ public sealed class FoodCandidate
     /// <summary>Why this food cannot be evaluated (missing price etc.). Empty when valid.</summary>
     public string InvalidReason { get; init; } = string.Empty;
 
+    /// <summary>Unique names of all items (the food itself or ingredients) whose price is missing or too old.</summary>
+    public IReadOnlyList<string> MissingPriceItems { get; init; } = [];
+
     public bool IsValid => string.IsNullOrEmpty(InvalidReason);
     public decimal FocusPerItem => AmountCrafted > 0 ? FocusPerCraft / AmountCrafted : 0m;
     public decimal ProfitPerItem => AmountCrafted > 0 ? ProfitPerCraft / AmountCrafted : 0m;

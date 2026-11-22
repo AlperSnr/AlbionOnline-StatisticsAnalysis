@@ -249,6 +249,47 @@
             </StackPanel>
             <TextBlock Text="{Binding ReturnRateText}" Foreground="{StaticResource SolidColorBrush.Text.3}" Margin="0,0,0,8" />
 
+            <!-- Missing / outdated prices -->
+            <Expander Margin="0,0,0,10" IsExpanded="False">
+                <Expander.Header>
+                    <TextBlock Text="{Binding MissingPriceSummaryText}" Foreground="{StaticResource SolidColorBrush.Accent.Yellow.2}" FontWeight="SemiBold" />
+                </Expander.Header>
+                <StackPanel Margin="0,6,0,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBlock Text="Open these items in the in-game market with the Albion Data Client running, then press &quot;Load prices &amp; plan&quot; again."
+                                   Foreground="{StaticResource SolidColorBrush.Text.3}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="700" />
+                        <Button Content="Copy list" Width="90" Height="24" Margin="10,0,0,0" Command="{Binding CopyMissingPricesCommand}"
+                                Style="{StaticResource Style.Button.Neutral}" ToolTip="Copy item names, status and blocked food count to the clipboard." />
+                    </StackPanel>
+                    <ListView ItemsSource="{Binding MissingPriceRows}" MinHeight="60" MaxHeight="360">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="" Width="45">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Image Source="{Binding Icon}" Width="32" Height="32" />
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="Item" Width="230" DisplayMemberBinding="{Binding Name}" />
+                                <GridViewColumn Header="Tier" Width="55" DisplayMemberBinding="{Binding TierText}" />
+                                <GridViewColumn Header="Type" Width="80" DisplayMemberBinding="{Binding UsageText}" />
+                                <GridViewColumn Header="Status" Width="90" DisplayMemberBinding="{Binding Item.StatusText}" />
+                                <GridViewColumn Header="Last price" Width="85" DisplayMemberBinding="{Binding LastPriceText}" />
+                                <GridViewColumn Header="Blocks" Width="60" DisplayMemberBinding="{Binding Item.BlockedFoodCount}" />
+                                <GridViewColumn Header="Blocked foods" Width="420">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding BlockedFoodsText}" TextTrimming="CharacterEllipsis" ToolTip="{Binding BlockedFoodsText}" />
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </StackPanel>
+            </Expander>
+
             <!-- Plan summary -->
             <TextBlock Text="Today's plan" Style="{StaticResource Food.SectionTitle}" />
             <WrapPanel Margin="0,0,0,6">

@@ -356,4 +356,68 @@ public class FoodCraftingTests
     }
 
     #endregion
+
+    #region Missing prices
+
+    private static readonly DateTime Now = new(2026, 11, 22, 12, 0, 0, DateTimeKind.Utc);
+
+    [Test]
+    public void PriceStatus_DetectsNoDataAndOutdated()
+    {
+        FoodPriceCheck.GetStatus(null, Now, 24).Should().Be(FoodPriceStatus.NoData);
+        FoodPriceCheck.GetStatus(new FoodMarketPrice { SellPriceMin = 0 }, Now, 24).Should().Be(FoodPriceStatus.NoData);
+        FoodPriceCheck.GetStatus(new FoodMarketPrice { SellPriceMin = 100, SellPriceMinDateUtc = Now.AddHours(-30) }, Now, 24)
+            .Should().Be(FoodPriceStatus.Outdated);
+        FoodPriceCheck.GetStatus(new FoodMarketPrice { SellPriceMin = 100, SellPriceMinDateUtc = Now.AddHours(-30) }, Now, 0)
+            .Should().Be(FoodPriceStatus.Ok);
+        FoodPriceCheck.GetStatus(new FoodMarketPrice { SellPriceMin = 100, SellPriceMinDateUtc = Now.AddHours(-2) }, Now, 24)
+            .Should().Be(FoodPriceStatus.Ok);
+    }
+
+    [Test]
+    public void MissingPriceList_GroupsBlockedFoodsPerItem()
+    {
+        var prices = new Dictionary<string, FoodMarketPrice>
+        {
+            ["T3_CARROT"] = new() { SellPriceMin = 50, SellPriceMinDateUtc = Now.AddDays(-3) },
+            ["T4_MEAL_SOUP"] = new() { SellPriceMin = 0 }
+        };
+        var candidates = new[]
+        {
+            new FoodCandidate { UniqueName = "T4_MEAL_SOUP", Name = "Soup", Tier = 4, InvalidReason = "x", MissingPriceItems = ["T4_MEAL_SOUP", "T3_CARROT"] },
+            new FoodCandidate { UniqueName = "T5_MEAL_SALAD", Name = "Salad", Tier = 5, InvalidReason = "x", MissingPriceItems = ["T3_CARROT"] },
+            new FoodCandidate { UniqueName = "T6_MEAL_PIE", Name = "Pie", Tier = 6 }
+        };
+
+        var list = FoodMissingPriceListBuilder.Build(candidates, prices, Now, 24);
+
+        list.Should().HaveCount(2);
+        list[0].UniqueName.Should().Be("T3_CARROT");
+        list[0].Status.Should().Be(FoodPriceStatus.Outdated);
+        list[0].StatusText.Should().Be("Old: 3 days");
+        list[0].BlockedFoodNames.Should().Equal("Salad (T5.0)", "Soup (T4.0)");
+        list[0].IsFood.Should().BeFalse();
+        list[1].UniqueName.Should().Be("T4_MEAL_SOUP");
+        list[1].Status.Should().Be(FoodPriceStatus.NoData);
+        list[1].IsFood.Should().BeTrue();
+    }
+
+    [Test]
+    public void SauceMissingItems_DependOnMode()
+    {
+        var noPrices = new Dictionary<string, decimal>();
+        var unknown = FishSauceCalculator.Resolve(1, FishSauceMode.Cheapest, 0m, 0m);
+
+        FishSauceCalculator.GetMissingPriceItems(unknown, SauceLevel1, noPrices)
+            .Should().BeEquivalentTo("T1_FISHSAUCE_LEVEL1", "T1_FISHCHOPS", "T1_SEAWEED");
+        FishSauceCalculator.GetMissingPriceItems(FishSauceCalculator.Resolve(1, FishSauceMode.Buy, 0m, 0m), SauceLevel1, noPrices)
+            .Should().Equal("T1_FISHSAUCE_LEVEL1");
+        FishSauceCalculator.GetMissingPriceItems(FishSauceCalculator.Resolve(1, FishSauceMode.Craft, 0m, 0m), SauceLevel1,
+                new Dictionary<string, decimal> { ["T1_FISHCHOPS"] = 200m })
+            .Should().Equal("T1_SEAWEED");
+        FishSauceCalculator.GetMissingPriceItems(FishSauceCalculator.Resolve(1, FishSauceMode.Cheapest, 500m, 0m), SauceLevel1, noPrices)
+            .Should().BeEmpty();
+    }
+
+    #endregion
 }

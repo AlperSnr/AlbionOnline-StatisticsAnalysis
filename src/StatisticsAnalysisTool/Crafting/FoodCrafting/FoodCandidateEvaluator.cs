@@ -19,6 +19,12 @@ public sealed class FoodEvaluationContext
 
     /// <summary>Resolved fish sauce price per level (1-3).</summary>
     public IReadOnlyDictionary<int, FishSauceCost> FishSauceCosts { get; init; }
+
+    /// <summary>
+    /// Per sauce level: the items whose missing price makes the sauce price unknown
+    /// (the sauce itself and/or its ingredients, depending on buy/craft mode).
+    /// </summary>
+    public IReadOnlyDictionary<int, IReadOnlyList<string>> FishSauceMissingItems { get; init; }
 }
 
 /// <summary>Evaluates one food recipe for one craft run, reusing the existing crafting calculator.</summary>
@@ -103,9 +109,11 @@ public sealed class FoodCandidateEvaluator
         var dailyVolume = context.DailyVolumes.GetValueOrDefault(item.UniqueName);
 
         var invalidReason = string.Empty;
+        var missingPriceItems = new List<string>();
         if (sellPrice <= 0m)
         {
             invalidReason = "No recent sell price";
+            missingPriceItems.Add(item.UniqueName);
         }
 
         var resourceInputs = new List<CraftingResourceInput>();
@@ -127,9 +135,23 @@ public sealed class FoodCandidateEvaluator
                 unitPrice = context.UnitPrices.GetValueOrDefault(resource.UniqueName);
             }
 
-            if (unitPrice <= 0m && string.IsNullOrEmpty(invalidReason))
+            if (unitPrice <= 0m)
             {
-                invalidReason = "No price: " + (ItemController.GetItemByUniqueName(resource.UniqueName)?.LocalizedName ?? resource.UniqueName);
+                if (string.IsNullOrEmpty(invalidReason))
+                {
+                    invalidReason = "No price: " + (ItemController.GetItemByUniqueName(resource.UniqueName)?.LocalizedName ?? resource.UniqueName);
+                }
+
+                if (sauceLevel > 0 && context.FishSauceMissingItems != null
+                                   && context.FishSauceMissingItems.TryGetValue(sauceLevel, out var sauceMissing)
+                                   && sauceMissing.Count > 0)
+                {
+                    missingPriceItems.AddRange(sauceMissing);
+                }
+                else
+                {
+                    missingPriceItems.Add(resource.UniqueName);
+                }
             }
 
             if (sauceLevel > 0)
@@ -189,6 +211,7 @@ public sealed class FoodCandidateEvaluator
             RoiPercent = result.RoiPercent,
             DailyVolume = dailyVolume,
             InvalidReason = invalidReason,
+            MissingPriceItems = missingPriceItems.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             Resources = result.Resources
                 .Select(x => new FoodCandidateResource
                 {

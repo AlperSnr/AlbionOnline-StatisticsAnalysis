@@ -95,6 +95,37 @@ public static class FishSauceCalculator
         };
     }
 
+    /// <summary>
+    /// Items to refresh in the market when the sauce price is unknown:
+    /// Buy = the sauce, Craft = its ingredients without price, Cheapest = both.
+    /// Empty when the sauce has a usable price.
+    /// </summary>
+    public static IReadOnlyList<string> GetMissingPriceItems(
+        FishSauceCost cost,
+        FishSauceRecipe recipe,
+        IReadOnlyDictionary<string, decimal> unitPrices)
+    {
+        if (cost == null || cost.EffectivePrice > 0m)
+        {
+            return [];
+        }
+
+        var result = new List<string>();
+        if (cost.Mode != FishSauceMode.Craft)
+        {
+            result.Add(recipe?.UniqueName ?? FishSauceRecipe.GetUniqueName(cost.Level));
+        }
+
+        if (cost.Mode != FishSauceMode.Buy && recipe?.Ingredients != null)
+        {
+            result.AddRange(recipe.Ingredients
+                .Where(x => unitPrices == null || !unitPrices.TryGetValue(x.UniqueName, out var price) || price <= 0m)
+                .Select(x => x.UniqueName));
+        }
+
+        return result;
+    }
+
     /// <summary>Ingredients needed for a number of crafted sauces, after expected returns.</summary>
     public static IEnumerable<(string UniqueName, decimal NetQuantity, decimal GrossQuantity)> GetIngredientsForSauces(
         FishSauceRecipe recipe,
