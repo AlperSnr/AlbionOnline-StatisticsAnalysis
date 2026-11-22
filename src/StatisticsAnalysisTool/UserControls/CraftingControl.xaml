@@ -982,6 +982,11 @@
         </Grid>
     </Grid>
         </TabItem>
+        <!-- [FORK] Food crafting tab (fork-only, see docs/fork/food-crafting-backlog.md) -->
+        <TabItem Header="Food Crafting">
+            <foodCrafting:FoodCraftingControl xmlns:foodCrafting="clr-namespace:StatisticsAnalysisTool.Crafting.FoodCrafting" />
+        </TabItem>
+        <!-- [/FORK] -->
         <TabItem Header="{x:Static crafting:LossExplorerBindings.TranslationLossExplorer}"
                  Visibility="{Binding CraftingBindings.LossExplorerTabVisibility}">
             <userControls:LossExplorerControl />
