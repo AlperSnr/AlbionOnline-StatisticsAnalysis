@@ -81,12 +81,8 @@ public sealed class FoodCandidateEvaluator
         return CraftingLocationData.GetExpectedReturnRatePercent(bonus, true);
     }
 
-    /// <summary>Fish sauce has no focus cost, so its return rate is the city bonus without focus.</summary>
-    public decimal GetFishSauceReturnRatePercent(MarketLocation city)
-    {
-        var sauceItem = ItemController.GetItemByUniqueName(FishSauceRecipe.GetUniqueName(1));
-        return CraftingLocationData.GetExpectedReturnRatePercent(GetCityBonusPercent(sauceItem, city), false);
-    }
+    /// <summary>Verified in-game: crafting fish sauce has no focus option and returns nothing (0% RRR) in every city.</summary>
+    public const decimal FishSauceReturnRatePercent = 0m;
 
     public FoodCandidate Evaluate(Item item, FoodEvaluationContext context)
     {

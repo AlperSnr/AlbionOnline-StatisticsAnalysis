@@ -23,6 +23,12 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
   (the reference sheet uses 125 + 15 for .3 – outdated).
 - Enchanted food uses 90 sauce per craft (10-item recipes) or 27 (1-item recipes like Clam Soup).
 - Food categories (`shopsubcategory2`): soups, salads, pies, omelettes, stews, sandwiches, roasts, grilledfish, other.
+- Cooking specializations (destiny board, verified in-game): Soups, Salads, Pies, Omelettes, Stews, Sandwiches, Roasts,
+  **Ingredients**, **Meat**. There is no Grilled Fish spec. Grilled fish / other foods only get the shared FCE part.
+- **Focus formula (verified in-game):** focus = base × 0.5^(FCE / 10,000);
+  FCE = mastery × 30 + every spec level × 30 (all foods) + own spec level × 250 extra (own spec = 280 / level).
+  The game shows focus rounded (34) but really uses decimals (33.8 × 5 crafts = 169).
+- **Fish sauce:** no focus toggle and **0% return rate** when crafted (verified in-game).
 - City crafting bonus is 18% everywhere; **Caerleon has +15% for food**. Brecilien with focus = 43.5% RRR (matches the sheet).
 - City cluster ids: Thetford 0000, Lymhurst 1000, Bridgewatch 2000, Martlock 3004, Fort Sterling 4000, Caerleon 3003, Brecilien 5000.
 
@@ -34,14 +40,13 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
 - [~] B1. Inputs for cooking mastery + each food category level, saved in `FoodCrafting.json` (user data folder).
 - [~] B2. Focus per craft / per item shown for every food.
 - [~] B3. Profit per focus point.
-- [ ] B4. **Verify formula in-game.** Assumed: cost = base × 0.5^(FCE / 10000),
-      FCE = mastery × 30 + own spec × 250 + other specs × 30 (editable under "Focus formula").
-      Use the built-in "Compare" check: pick a food, enter the in-game focus cost → shows implied FCE.
-      Reference sheet 504 → 28 implies ≈ 41,700 FCE.
+- [x] B4. Formula verified in-game (own spec counts 250 + 30). Constants stay editable under "Focus formula";
+      the "Compare" check (pick a food, enter in-game focus) remains for future patches.
+- [x] B5. Specialization inputs: Soups, Salads, Pies, Omelettes, Stews, Sandwiches, Roasts, Ingredients, Meat.
 
 ## C. Fish sauce
 - [~] C1. Per sauce level: Cheapest / Buy / Craft.
-- [~] C2. Crafted sauce cost from Chopped Fish + Seaweed prices, with city return rate (no focus).
+- [x] C2. Crafted sauce cost from Chopped Fish + Seaweed prices, 0% return rate (verified in-game).
 - [~] C3. Table: market price vs crafted cost vs used price.
 - [~] C4. Uses the tool's return model (cost × (1 − RRR)), not the sheet's 6-iteration "magic number".
 
@@ -56,11 +61,11 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
 - [~] D7. "Recalculate" re-plans with the downloaded prices after changing settings (no new download).
 
 ## Open questions / things to check in-game
-- [ ] Q1. Focus formula constants (B4).
-- [ ] Q2. Does crafting fish sauce get the focus return bonus? Currently: no (sauce has no focus cost).
-- [ ] Q3. Daily production bonus is applied to food only (not to fish sauce). Correct?
-- [ ] Q4. Does the game round the focus cost (to whole numbers)? Currently kept as decimal.
-- [ ] Q5. Station fee is entered manually (silver per 100 nutrition). OK, or read it from the game?
+- [x] Q1. Focus formula constants → verified (own spec 250 + 30).
+- [x] Q2. Fish sauce crafting → no focus, 0% return rate.
+- [~] Q3. Daily production bonus applies to food only (not fish sauce). User: "probably not" for sauce → kept food-only.
+- [x] Q4. Focus is not rounded (33.8 per craft, 169 for 5) → kept as decimal.
+- [x] Q5. Station fee entered manually → OK.
 
 ## E. Later / ideas
 - [?] E1. Subtract ingredients already owned from the shopping list.

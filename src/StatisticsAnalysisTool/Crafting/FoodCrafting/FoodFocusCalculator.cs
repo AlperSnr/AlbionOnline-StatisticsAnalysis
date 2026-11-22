@@ -15,30 +15,28 @@ public static class FoodFocusCalculator
             return 0m;
         }
 
+        // Verified in-game: every specialization level gives 30 to all foods (incl. its own),
+        // and the food's own specialization gives 250 extra on top (280 per level in total).
         var ownCategory = FoodCategories.Normalize(category);
-        var mastery = Math.Clamp(board.MasteryLevel, 0, 100) * board.FcePerMasteryLevel;
-        var own = 0m;
-        var others = 0m;
+        var total = Math.Clamp(board.MasteryLevel, 0, 100) * board.FcePerMasteryLevel;
 
         foreach (var specialization in board.Specializations ?? [])
         {
-            if (specialization == null)
+            if (specialization == null || !FoodCategories.IsSpecialization(specialization.Category))
             {
                 continue;
             }
 
             var level = Math.Clamp(specialization.Level, 0, 100);
+            total += level * board.FcePerOtherSpecializationLevel;
+
             if (FoodCategories.Normalize(specialization.Category) == ownCategory)
             {
-                own += level * board.FcePerOwnSpecializationLevel;
-            }
-            else
-            {
-                others += level * board.FcePerOtherSpecializationLevel;
+                total += level * board.FcePerOwnSpecializationLevel;
             }
         }
 
-        return Math.Max(0m, mastery + own + others);
+        return Math.Max(0m, total);
     }
 
     /// <summary>Focus cost = base focus × 0.5^(FCE / 10,000).</summary>

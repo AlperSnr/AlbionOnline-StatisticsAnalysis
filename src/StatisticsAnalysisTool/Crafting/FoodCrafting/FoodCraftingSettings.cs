@@ -78,13 +78,16 @@ public class FoodDestinyBoard
     /// <summary>One entry per food category (0-100).</summary>
     public List<FoodSpecializationLevel> Specializations { get; set; } = [];
 
-    /// <summary>Focus cost efficiency per mastery level. Needs in-game verification.</summary>
+    /// <summary>Focus cost efficiency per mastery level (verified in-game).</summary>
     public decimal FcePerMasteryLevel { get; set; } = 30m;
 
-    /// <summary>Focus cost efficiency per level of the crafted food's own specialization. Needs in-game verification.</summary>
+    /// <summary>
+    /// Extra focus cost efficiency per level of the crafted food's own specialization,
+    /// on top of <see cref="FcePerOtherSpecializationLevel"/> (own spec = 250 + 30 = 280 per level, verified in-game).
+    /// </summary>
     public decimal FcePerOwnSpecializationLevel { get; set; } = 250m;
 
-    /// <summary>Focus cost efficiency per level of every other food specialization. Needs in-game verification.</summary>
+    /// <summary>Focus cost efficiency every specialization level gives to all foods, including its own (verified in-game).</summary>
     public decimal FcePerOtherSpecializationLevel { get; set; } = 30m;
 
     public int GetSpecializationLevel(string category)
@@ -93,23 +96,27 @@ public class FoodDestinyBoard
         return Specializations?.FirstOrDefault(x => FoodCategories.Normalize(x.Category) == id)?.Level ?? 0;
     }
 
-    /// <summary>Makes sure every known food category has exactly one entry.</summary>
+    /// <summary>
+    /// Makes sure every cooking specialization has exactly one entry and removes unknown ones
+    /// (e.g. "grilledfish"/"other" saved by older versions of this tab).
+    /// </summary>
     public void EnsureAllCategories()
     {
         Specializations ??= [];
 
-        foreach (var (id, _) in FoodCategories.All)
+        foreach (var (id, _) in FoodCategories.Specializations)
         {
-            if (Specializations.All(x => FoodCategories.Normalize(x.Category) != id))
+            if (Specializations.All(x => FoodCategories.Normalize(x?.Category) != id))
             {
                 Specializations.Add(new FoodSpecializationLevel { Category = id });
             }
         }
 
         Specializations = Specializations
+            .Where(x => x != null && FoodCategories.IsSpecialization(x.Category))
             .GroupBy(x => FoodCategories.Normalize(x.Category))
-            .Select(x => x.First())
-            .OrderBy(x => FoodCategories.All.ToList().FindIndex(c => c.Id == FoodCategories.Normalize(x.Category)))
+            .Select(x => new FoodSpecializationLevel { Category = x.Key, Level = x.First().Level })
+            .OrderBy(x => FoodCategories.GetSortIndex(x.Category))
             .ToList();
     }
 }

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 
 namespace StatisticsAnalysisTool.Crafting.FoodCrafting;
 
@@ -13,14 +15,15 @@ public static class FoodCategories
     public const string Stews = "stews";
     public const string Sandwiches = "sandwiches";
     public const string Roasts = "roasts";
-    public const string GrilledFish = "grilledfish";
-    public const string Other = "other";
+    public const string Ingredients = "ingredients";
+    public const string Meat = "meat";
 
     /// <summary>
-    /// Food categories as found in items.json (@shopsubcategory2 of food items).
-    /// Each one is treated as a destiny board specialization.
+    /// Cooking specializations on the destiny board. Food items match them by @shopsubcategory2
+    /// (soups, salads, ...). Ingredients and Meat have no food items in this tab, but their levels
+    /// still add focus efficiency to every food.
     /// </summary>
-    public static readonly IReadOnlyList<(string Id, string DisplayName)> All =
+    public static readonly IReadOnlyList<(string Id, string DisplayName)> Specializations =
     [
         (Soups, "Soups"),
         (Salads, "Salads"),
@@ -29,40 +32,47 @@ public static class FoodCategories
         (Stews, "Stews"),
         (Sandwiches, "Sandwiches"),
         (Roasts, "Roasts"),
-        (GrilledFish, "Grilled Fish"),
-        (Other, "Other")
+        (Ingredients, "Ingredients"),
+        (Meat, "Meat")
     ];
 
+    /// <summary>Lower-case, trimmed category id (any value from items.json, not only specializations).</summary>
     public static string Normalize(string category)
     {
-        if (string.IsNullOrWhiteSpace(category))
-        {
-            return Other;
-        }
+        return string.IsNullOrWhiteSpace(category) ? string.Empty : category.Trim().ToLowerInvariant();
+    }
 
-        var value = category.Trim().ToLowerInvariant();
-        foreach (var (id, _) in All)
+    public static bool IsSpecialization(string category)
+    {
+        var id = Normalize(category);
+        return Specializations.Any(x => x.Id == id);
+    }
+
+    public static int GetSortIndex(string category)
+    {
+        var id = Normalize(category);
+        for (var i = 0; i < Specializations.Count; i++)
         {
-            if (string.Equals(id, value, StringComparison.Ordinal))
+            if (Specializations[i].Id == id)
             {
-                return id;
+                return i;
             }
         }
 
-        return Other;
+        return int.MaxValue;
     }
 
     public static string GetDisplayName(string category)
     {
         var id = Normalize(category);
-        foreach (var (categoryId, displayName) in All)
+        foreach (var (specializationId, displayName) in Specializations)
         {
-            if (categoryId == id)
+            if (string.Equals(specializationId, id, StringComparison.Ordinal))
             {
                 return displayName;
             }
         }
 
-        return category ?? string.Empty;
+        return string.IsNullOrEmpty(id) ? "Other" : CultureInfo.InvariantCulture.TextInfo.ToTitleCase(id);
     }
 }

@@ -339,7 +339,7 @@ public sealed class FoodCraftingBindings : BaseViewModel
         {
             var unitPrices = GetUsablePrices(prices, settings.MaxPriceAgeHours);
             var sauceRecipes = _catalog.GetFishSauceRecipes();
-            var sauceReturnRate = _evaluator.GetFishSauceReturnRatePercent(settings.City);
+            var sauceReturnRate = FoodCandidateEvaluator.FishSauceReturnRatePercent;
             var sauceCosts = new Dictionary<int, FishSauceCost>();
 
             for (var level = 1; level <= 3; level++)
@@ -432,7 +432,7 @@ public sealed class FoodCraftingBindings : BaseViewModel
         }
 
         Plan = plan;
-        ReturnRateText = $"Food RRR (with focus): {foodReturnRate:N2}% | Fish sauce RRR: {sauceReturnRate:N2}%";
+        ReturnRateText = $"Food RRR (with focus): {foodReturnRate:N2}% | Fish sauce RRR: {sauceReturnRate:N2}% (no returns when crafting sauce)";
 
         var valid = candidates.Count(x => x.IsValid);
         var missing = candidates.Count - valid;

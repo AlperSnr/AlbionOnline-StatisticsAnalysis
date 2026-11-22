@@ -32,10 +32,28 @@ public class FoodCraftingTests
             ]
         };
 
-        // 100 × 30 + 100 × 250 + 50 × 30
-        FoodFocusCalculator.GetFocusCostEfficiency(board, "salads").Should().Be(29500m);
-        // 100 × 30 + 50 × 250 + 100 × 30
-        FoodFocusCalculator.GetFocusCostEfficiency(board, "pies").Should().Be(18500m);
+        // mastery 100 × 30 + salads 100 × (250 + 30) + pies 50 × 30
+        FoodFocusCalculator.GetFocusCostEfficiency(board, "salads").Should().Be(32500m);
+        // mastery 100 × 30 + pies 50 × (250 + 30) + salads 100 × 30
+        FoodFocusCalculator.GetFocusCostEfficiency(board, "pies").Should().Be(20000m);
+    }
+
+    [Test]
+    public void GetFocusCostEfficiency_IngredientsAndMeatAddToEveryFood()
+    {
+        var board = new FoodDestinyBoard
+        {
+            MasteryLevel = 0,
+            Specializations =
+            [
+                new FoodSpecializationLevel { Category = FoodCategories.Ingredients, Level = 100 },
+                new FoodSpecializationLevel { Category = FoodCategories.Meat, Level = 100 }
+            ]
+        };
+
+        FoodFocusCalculator.GetFocusCostEfficiency(board, FoodCategories.Stews).Should().Be(6000m);
+        // Foods without a specialization (e.g. grilled fish) only get the shared part.
+        FoodFocusCalculator.GetFocusCostEfficiency(board, "grilledfish").Should().Be(6000m);
     }
 
     [Test]
@@ -61,21 +79,25 @@ public class FoodCraftingTests
     }
 
     [Test]
-    public void EnsureAllCategories_AddsMissingAndRemovesDuplicates()
+    public void EnsureAllCategories_AddsMissingRemovesDuplicatesAndUnknown()
     {
         var board = new FoodDestinyBoard
         {
             Specializations =
             [
                 new FoodSpecializationLevel { Category = "SALADS", Level = 40 },
-                new FoodSpecializationLevel { Category = "salads", Level = 10 }
+                new FoodSpecializationLevel { Category = "salads", Level = 10 },
+                new FoodSpecializationLevel { Category = "grilledfish", Level = 50 },
+                new FoodSpecializationLevel { Category = "other", Level = 50 }
             ]
         };
 
         board.EnsureAllCategories();
 
-        board.Specializations.Should().HaveCount(FoodCategories.All.Count);
+        board.Specializations.Should().HaveCount(FoodCategories.Specializations.Count);
+        board.Specializations.Select(x => x.Category).Should().Equal(FoodCategories.Specializations.Select(x => x.Id));
         board.GetSpecializationLevel(FoodCategories.Salads).Should().Be(40);
+        board.GetSpecializationLevel(FoodCategories.Meat).Should().Be(0);
     }
 
     #endregion

@@ -160,18 +160,18 @@
                         <Expander Header="Focus formula (advanced / check)" Foreground="{StaticResource SolidColorBrush.Text.2}" Margin="0,4,0,0">
                             <StackPanel Margin="0,6,0,0">
                                 <TextBlock Foreground="{StaticResource SolidColorBrush.Text.3}" TextWrapping="Wrap" Margin="0,0,0,6"
-                                           Text="Focus = base focus × 0.5^(FCE ÷ 10,000). FCE = mastery × A + own specialization × B + other specializations × C. The default values still need checking in-game." />
+                                           Text="Focus = base focus × 0.5^(FCE ÷ 10,000). FCE = mastery × A + every specialization × C + the food's own specialization × B (own spec = B + C = 280 per level). Defaults verified in-game." />
                                 <WrapPanel>
                                     <StackPanel Style="{StaticResource Food.Field}">
                                         <TextBlock Text="A: FCE per mastery level" Style="{StaticResource Food.Label}" />
                                         <TextBox Text="{Binding Settings.DestinyBoard.FcePerMasteryLevel, Mode=TwoWay}" Style="{StaticResource Food.Input}" />
                                     </StackPanel>
                                     <StackPanel Style="{StaticResource Food.Field}">
-                                        <TextBlock Text="B: FCE per own spec level" Style="{StaticResource Food.Label}" />
+                                        <TextBlock Text="B: extra FCE per own spec level" Style="{StaticResource Food.Label}" />
                                         <TextBox Text="{Binding Settings.DestinyBoard.FcePerOwnSpecializationLevel, Mode=TwoWay}" Style="{StaticResource Food.Input}" />
                                     </StackPanel>
                                     <StackPanel Style="{StaticResource Food.Field}">
-                                        <TextBlock Text="C: FCE per other spec level" Style="{StaticResource Food.Label}" />
+                                        <TextBlock Text="C: FCE per any spec level" Style="{StaticResource Food.Label}" />
                                         <TextBox Text="{Binding Settings.DestinyBoard.FcePerOtherSpecializationLevel, Mode=TwoWay}" Style="{StaticResource Food.Input}" />
                                     </StackPanel>
                                 </WrapPanel>
