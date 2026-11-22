@@ -39,6 +39,46 @@ public class FoodCraftingTests
     }
 
     [Test]
+    public void GetFocusCost_MatchesInGameCabbageSoup()
+    {
+        // In-game: T5 Cabbage Soup (base 504) costs 25.3 focus per craft with these levels.
+        var board = new FoodDestinyBoard
+        {
+            MasteryLevel = 100,
+            Specializations =
+            [
+                new FoodSpecializationLevel { Category = FoodCategories.Soups, Level = 81 },
+                new FoodSpecializationLevel { Category = FoodCategories.Salads, Level = 84 },
+                new FoodSpecializationLevel { Category = FoodCategories.Pies, Level = 92 },
+                new FoodSpecializationLevel { Category = FoodCategories.Omelettes, Level = 82 },
+                new FoodSpecializationLevel { Category = FoodCategories.Stews, Level = 88 },
+                new FoodSpecializationLevel { Category = FoodCategories.Sandwiches, Level = 85 },
+                new FoodSpecializationLevel { Category = FoodCategories.Roasts, Level = 100 },
+                new FoodSpecializationLevel { Category = FoodCategories.Ingredients, Level = 51 },
+                new FoodSpecializationLevel { Category = FoodCategories.Meat, Level = 0 }
+            ]
+        };
+
+        var fce = FoodFocusCalculator.GetFocusCostEfficiency(board, FoodCategories.Soups);
+
+        fce.Should().Be(43140m);
+        FoodFocusCalculator.GetFocusCost(504m, fce).Should().BeApproximately(25.3m, 0.1m);
+    }
+
+    [Test]
+    public void OldSavedOwnSpecializationValue_IsIgnored()
+    {
+        // Older versions saved "FcePerOwnSpecializationLevel": 280 (own spec only). It must not be read
+        // as the new "extra" value, otherwise the own spec would count 310 per level.
+        const string json = "{\"MasteryLevel\":100,\"FcePerOwnSpecializationLevel\":280,\"FcePerOtherSpecializationLevel\":30}";
+
+        var board = System.Text.Json.JsonSerializer.Deserialize<FoodDestinyBoard>(json)!;
+
+        board.FceExtraPerOwnSpecializationLevel.Should().Be(250m);
+        board.MasteryLevel.Should().Be(100);
+    }
+
+    [Test]
     public void GetFocusCostEfficiency_IngredientsAndMeatAddToEveryFood()
     {
         var board = new FoodDestinyBoard

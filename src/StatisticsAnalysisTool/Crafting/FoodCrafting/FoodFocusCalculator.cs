@@ -32,7 +32,7 @@ public static class FoodFocusCalculator
 
             if (FoodCategories.Normalize(specialization.Category) == ownCategory)
             {
-                total += level * board.FcePerOwnSpecializationLevel;
+                total += level * board.FceExtraPerOwnSpecializationLevel;
             }
         }
 

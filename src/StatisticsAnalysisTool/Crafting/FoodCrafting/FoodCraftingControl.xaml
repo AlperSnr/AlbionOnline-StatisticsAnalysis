@@ -168,7 +168,7 @@
                                     </StackPanel>
                                     <StackPanel Style="{StaticResource Food.Field}">
                                         <TextBlock Text="B: extra FCE per own spec level" Style="{StaticResource Food.Label}" />
-                                        <TextBox Text="{Binding Settings.DestinyBoard.FcePerOwnSpecializationLevel, Mode=TwoWay}" Style="{StaticResource Food.Input}" />
+                                        <TextBox Text="{Binding Settings.DestinyBoard.FceExtraPerOwnSpecializationLevel, Mode=TwoWay}" Style="{StaticResource Food.Input}" />
                                     </StackPanel>
                                     <StackPanel Style="{StaticResource Food.Field}">
                                         <TextBlock Text="C: FCE per any spec level" Style="{StaticResource Food.Label}" />

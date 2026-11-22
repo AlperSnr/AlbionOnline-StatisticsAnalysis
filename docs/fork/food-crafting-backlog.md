@@ -27,6 +27,8 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
   **Ingredients**, **Meat**. There is no Grilled Fish spec. Grilled fish / other foods only get the shared FCE part.
 - **Focus formula (verified in-game):** focus = base × 0.5^(FCE / 10,000);
   FCE = mastery × 30 + every spec level × 30 (all foods) + own spec level × 250 extra (own spec = 280 / level).
+  Checked again with T5 Cabbage Soup: 43,140 FCE → 25.3 focus per craft. Setting renamed to
+  `FceExtraPerOwnSpecializationLevel` so an old saved 280 is not double-counted.
   The game shows focus rounded (34) but really uses decimals (33.8 × 5 crafts = 169).
 - **Fish sauce:** no focus toggle and **0% return rate** when crafted (verified in-game).
 - **Station fee:** T1 and T2 recipes cost no station fee (verified in-game) → fish sauce (T1) is free to craft,

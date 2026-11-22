@@ -85,7 +85,7 @@ public class FoodDestinyBoard
     /// Extra focus cost efficiency per level of the crafted food's own specialization,
     /// on top of <see cref="FcePerOtherSpecializationLevel"/> (own spec = 250 + 30 = 280 per level, verified in-game).
     /// </summary>
-    public decimal FcePerOwnSpecializationLevel { get; set; } = 250m;
+    public decimal FceExtraPerOwnSpecializationLevel { get; set; } = 250m;
 
     /// <summary>Focus cost efficiency every specialization level gives to all foods, including its own (verified in-game).</summary>
     public decimal FcePerOtherSpecializationLevel { get; set; } = 30m;
