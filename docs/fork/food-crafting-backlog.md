@@ -103,6 +103,16 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
 - [x] E9. Re-crafting returned resources more precisely → done as D12 (safety margin for random returns)
       and D13 (fish sauce rounded to whole crafts per level).
 
+## Known issues (upstream)
+- [ ] K1. Storage History keeps an item stack's **first seen quantity**. `VaultController.AddDiscoveredItem`
+      (`StorageHistory/VaultController.cs`) returns early when the ObjectId is already known, so a stack that grows
+      later (e.g. crafted fish sauce stacking from 1 to 41, same ObjectId) still shows the old amount. Moving it out
+      and back keeps the ObjectId, so that does not help. Discovered items are only cleared on zone change
+      (`ClusterController` → `ResetDiscoveredItems`).
+      **Workaround (used for now):** change zone, come back, open the chest again → correct amount (verified in-game).
+      **Fix idea:** update the existing entry's quantity instead of returning (few lines, upstream file, mark `[FORK]`),
+      or report / send it to Triky313 so it is fixed upstream.
+
 ## Merge-risk log
 | Change | Upstream file | Risk |
 |---|---|---|
