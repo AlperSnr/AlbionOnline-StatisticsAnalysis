@@ -108,6 +108,10 @@
                             <TextBlock Text="Focus budget" Style="{StaticResource Food.Label}" />
                             <TextBox Text="{Binding Settings.FocusBudget, Mode=TwoWay}" Style="{StaticResource Food.Input}" />
                         </StackPanel>
+                        <StackPanel Style="{StaticResource Food.Field}" ToolTip="Max silver to spend on one plan (expected material cost + station fee). 0 = no limit.">
+                            <TextBlock Text="Max investment" Style="{StaticResource Food.Label}" />
+                            <TextBox Text="{Binding Settings.MaxInvestment, Mode=TwoWay, StringFormat=N0}" Style="{StaticResource Food.Input}" />
+                        </StackPanel>
                         <StackPanel Style="{StaticResource Food.Field}" ToolTip="Craft at most (items sold per day ÷ this value) of each food.">
                             <TextBlock Text="Daily volume divisor" Style="{StaticResource Food.Label}" />
                             <TextBox Text="{Binding Settings.DailyVolumeDivisor, Mode=TwoWay}" Style="{StaticResource Food.Input}" />

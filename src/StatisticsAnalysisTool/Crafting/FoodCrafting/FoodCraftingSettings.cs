@@ -14,6 +14,9 @@ public class FoodCraftingSettings
     public decimal SetupFeePercent { get; set; } = 2.5m;
 
     public decimal FocusBudget { get; set; } = 10000m;
+
+    /// <summary>Max silver to invest in one plan (expected material cost + station fee). 0 = no limit.</summary>
+    public decimal MaxInvestment { get; set; }
     public decimal DailyVolumeDivisor { get; set; } = 10m;
     public decimal MinProfitPerFocus { get; set; }
     public int MaxPriceAgeHours { get; set; } = 24;

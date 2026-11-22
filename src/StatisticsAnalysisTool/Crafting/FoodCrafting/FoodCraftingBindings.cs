@@ -381,6 +381,7 @@ public sealed class FoodCraftingBindings : BaseViewModel
             var plan = FoodPlanner.Plan(candidates, new FoodPlanInput
             {
                 FocusBudget = settings.FocusBudget,
+                MaxInvestment = settings.MaxInvestment,
                 DailyVolumeDivisor = settings.DailyVolumeDivisor,
                 MinProfitPerFocus = settings.MinProfitPerFocus
             });
@@ -458,7 +459,10 @@ public sealed class FoodCraftingBindings : BaseViewModel
         var missing = candidates.Count - valid;
         var age = _lastDownloadUtc == default ? string.Empty : $" Prices downloaded {_lastDownloadUtc.ToLocalTime():t}.";
         StatusText = $"{candidates.Count} foods checked: {valid} with prices, {missing} skipped (see \"Missing / outdated prices\"), "
-                     + $"{Candidates.Count} profitable. Plan: {plan.Entries.Count} foods, {plan.TotalFocus:N0} of {plan.FocusBudget:N0} focus.{age}";
+                     + $"{Candidates.Count} profitable. Plan: {plan.Entries.Count} foods, {plan.TotalFocus:N0} of {plan.FocusBudget:N0} focus"
+                     + (plan.MaxInvestment > 0m ? $", {plan.TotalInvestment:N0} of {plan.MaxInvestment:N0} silver" : string.Empty)
+                     + (plan.IsLimitedByInvestment ? " (limited by max investment)" : string.Empty)
+                     + $".{age}";
         UpdateCalibration();
     }
 

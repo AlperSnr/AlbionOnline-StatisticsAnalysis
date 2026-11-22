@@ -357,6 +357,58 @@ public class FoodCraftingTests
 
     #endregion
 
+    #region Investment limit
+
+    [Test]
+    public void Plan_StopsAtMaxInvestment()
+    {
+        // Each craft costs 1,000. Best food could do 10 crafts, but only 3,500 silver is allowed → 3 crafts.
+        var best = Candidate("BEST", 100m, 5000m, 1000m);
+        var second = Candidate("SECOND", 100m, 1000m, 1000m);
+
+        var plan = FoodPlanner.Plan([best, second], new FoodPlanInput
+        {
+            FocusBudget = 100000m,
+            DailyVolumeDivisor = 10m,
+            MaxInvestment = 3500m
+        });
+
+        plan.Entries.Should().HaveCount(1);
+        plan.Entries[0].Candidate.UniqueName.Should().Be("BEST");
+        plan.Entries[0].Crafts.Should().Be(3);
+        plan.TotalInvestment.Should().Be(3000m);
+        plan.RemainingInvestment.Should().Be(500m);
+        plan.IsLimitedByInvestment.Should().BeTrue();
+    }
+
+    [Test]
+    public void Plan_ZeroMaxInvestment_MeansNoLimit()
+    {
+        var plan = FoodPlanner.Plan([Candidate("A", 100m, 5000m, 1000m)], new FoodPlanInput
+        {
+            FocusBudget = 100000m,
+            DailyVolumeDivisor = 10m
+        });
+
+        plan.Entries[0].Crafts.Should().Be(10);
+        plan.IsLimitedByInvestment.Should().BeFalse();
+    }
+
+    [Test]
+    public void Plan_UsesLeftoverInvestmentForCheaperFood()
+    {
+        var plan = FoodPlanner.Plan([
+            new FoodCandidate { UniqueName = "EXPENSIVE", AmountCrafted = 10, FocusPerCraft = 100m, ProfitPerCraft = 5000m, CostPerCraft = 3000m, DailyVolume = 1000m },
+            new FoodCandidate { UniqueName = "CHEAP", AmountCrafted = 10, FocusPerCraft = 100m, ProfitPerCraft = 1000m, CostPerCraft = 500m, DailyVolume = 1000m }
+        ], new FoodPlanInput { FocusBudget = 100000m, DailyVolumeDivisor = 10m, MaxInvestment = 7000m });
+
+        // 2 × 3,000 = 6,000, the leftover 1,000 pays for 2 cheap crafts.
+        plan.Entries.Select(x => (x.Candidate.UniqueName, x.Crafts)).Should().Equal(("EXPENSIVE", 2), ("CHEAP", 2));
+        plan.TotalInvestment.Should().Be(7000m);
+    }
+
+    #endregion
+
     #region Missing prices
 
     private static readonly DateTime Now = new(2026, 11, 22, 12, 0, 0, DateTimeKind.Utc);

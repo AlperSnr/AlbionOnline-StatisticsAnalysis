@@ -52,6 +52,8 @@ public static class FoodCraftingSettingsStore
             settings.City = MarketLocation.BrecilienMarket;
         }
 
+        settings.MaxInvestment = Math.Max(0m, settings.MaxInvestment);
+
         return settings;
     }
 }
