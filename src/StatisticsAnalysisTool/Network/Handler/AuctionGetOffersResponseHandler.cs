@@ -10,6 +10,7 @@ public class AuctionGetOffersResponseHandler(TrackingController trackingControll
     {
         trackingController.MarketController.AddOffers(value.AuctionEntries);
         trackingController.MarketController.UpdateSellOrderMarketData(value.AuctionEntries);
+        Crafting.FoodCrafting.FoodOrderBookStore.CaptureFromGame(value.AuctionEntries); // [FORK] food crafting order books
         await Task.CompletedTask;
     }
 }

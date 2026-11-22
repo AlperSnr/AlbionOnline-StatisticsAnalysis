@@ -91,6 +91,15 @@
                             <TextBlock Text="Max price age (hours)" Style="{StaticResource Food.Label}" />
                             <TextBox Text="{Binding Settings.MaxPriceAgeHours, Mode=TwoWay}" Style="{StaticResource Food.Input}" />
                         </StackPanel>
+                        <StackPanel Style="{StaticResource Food.Field}"
+                                    ToolTip="Use the sell orders the game sent while you opened items in the market (Buy tab). Buying more than the cheapest order pushes the price up; this is included.">
+                            <TextBlock Text="In-game sell orders" Style="{StaticResource Food.Label}" />
+                            <CheckBox Content="Use for real cost" IsChecked="{Binding Settings.UseOrderBooks, Mode=TwoWay}" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <StackPanel Style="{StaticResource Food.Field}" ToolTip="Captured sell orders older than this are ignored. 0 = no limit.">
+                            <TextBlock Text="Max order age (min)" Style="{StaticResource Food.Label}" />
+                            <TextBox Text="{Binding Settings.OrderBookMaxAgeMinutes, Mode=TwoWay}" Style="{StaticResource Food.Input}" />
+                        </StackPanel>
                         <StackPanel Style="{StaticResource Food.Field}">
                             <TextBlock Text="Enchantments" Style="{StaticResource Food.Label}" />
                             <StackPanel Orientation="Horizontal" Height="26">
@@ -251,7 +260,8 @@
                         Style="{StaticResource Style.Button.Neutral}" />
                 <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource SolidColorBrush.Text.2}" VerticalAlignment="Center" Margin="10,0,0,0" TextWrapping="Wrap" MaxWidth="900" />
             </StackPanel>
-            <TextBlock Text="{Binding ReturnRateText}" Foreground="{StaticResource SolidColorBrush.Text.3}" Margin="0,0,0,8" />
+            <TextBlock Text="{Binding ReturnRateText}" Foreground="{StaticResource SolidColorBrush.Text.3}" Margin="0,0,0,2" />
+            <TextBlock Text="{Binding OrderBookCaptureText}" Foreground="{StaticResource SolidColorBrush.Text.3}" Margin="0,0,0,8" />
 
             <!-- Missing / outdated prices -->
             <Expander Margin="0,0,0,10" IsExpanded="False">
@@ -370,6 +380,7 @@
 
             <!-- Shopping list -->
             <TextBlock Text="Shopping list" Style="{StaticResource Food.SectionTitle}" />
+            <TextBlock Text="{Binding OrderBookSummaryText}" Foreground="{StaticResource SolidColorBrush.Text.2}" Margin="0,0,0,4" TextWrapping="Wrap" />
             <ListView ItemsSource="{Binding ShoppingRows}" MinHeight="80" Margin="0,0,0,10">
                 <ListView.View>
                     <GridView>
@@ -386,6 +397,21 @@
                         <GridViewColumn Header="Buy (no returns)" Width="120" DisplayMemberBinding="{Binding Item.GrossQuantityToBuy, StringFormat=N0}" />
                         <GridViewColumn Header="Unit price" Width="90" DisplayMemberBinding="{Binding Item.UnitPrice, StringFormat=N0}" />
                         <GridViewColumn Header="Cost (expected)" Width="120" DisplayMemberBinding="{Binding Item.NetCost, StringFormat=N0}" />
+                        <GridViewColumn Header="Listed" Width="110">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock x:Name="ListedText" Text="{Binding ListedText}" />
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsShort}" Value="True">
+                                            <Setter TargetName="ListedText" Property="Foreground" Value="{StaticResource SolidColorBrush.Accent.Red.2}" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="Real avg price" Width="130" DisplayMemberBinding="{Binding RealUnitPriceText}" />
+                        <GridViewColumn Header="Real cost" Width="110" DisplayMemberBinding="{Binding RealCostText}" />
+                        <GridViewColumn Header="Orders seen" Width="100" DisplayMemberBinding="{Binding BookAgeText}" />
                     </GridView>
                 </ListView.View>
             </ListView>

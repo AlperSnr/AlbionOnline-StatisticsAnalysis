@@ -82,6 +82,11 @@ public sealed class FoodMissingPriceItem
         _ => "OK"
     };
 
+    public static string FormatMinutes(double minutes)
+    {
+        return minutes < 90 ? $"{Math.Max(0, Math.Floor(minutes)):0} min ago" : FormatAge(minutes / 60d) + " ago";
+    }
+
     public static string FormatAge(double hours)
     {
         if (hours < 48)

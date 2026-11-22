@@ -63,6 +63,12 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
 - [~] D5. Shopping list (expected and no-return quantities), crafted-sauce ingredients listed separately.
 - [~] D6. Sales tax + setup fee + station fee included.
 - [~] D9. Max investment (silver) limit for the plan; 0 = no limit. Leftover silver goes to cheaper foods.
+- [~] D10. Real cost from in-game sell orders. When an item's market page (Buy tab) is opened while the tool runs,
+      the game's sell orders (price + amount) are stored per item and city (`FoodOrderBook.cs`, saved in
+      `FoodCraftingOrderBooks.json`, pages within 5 min are merged, books older than 7 days dropped).
+      Ingredient prices then come from the order book: the plan is re-calculated up to 4 times with the average price
+      for the planned quantity (buying a lot pushes the price up, e.g. Avalonian Energy). Shopping list shows
+      listed amount (red when short), real average/max price, real cost and order age. Settings: on/off, max order age (120 min).
 - [~] D7. "Recalculate" re-plans with the downloaded prices after changing settings (no new download).
 - [~] D8. "Missing / outdated prices" list: every item (food or ingredient) with no price or a price older than
       the max price age, how old it is, and which foods it keeps out of the plan (most blocking first).
@@ -86,14 +92,9 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
 - [?] E7. Copy the plan / shopping list to clipboard.
 - [?] E8. "Open in Item Crafting" for one food to see the detailed breakdown.
 - [?] E9. Account for re-crafting the returned resources more precisely (variance, rounding per craft).
-- [?] E10. Real cost from the sell-order book (postponed by user). AODP only gives the cheapest price, not amounts.
-      Plan: keep the orders the game sends when a market page is opened (`AuctionGetOffers`), walk them cheapest-first
-      for each shopping item, show "listed × qty" vs "real cost", warn when not enough is listed.
-      Needs a 1-line `[FORK]` hook in upstream `Network/Handler/AuctionGetOffersResponseHandler.cs`
-      (only one handler per opcode). Alternative without upstream change: AODP NATS order stream (more work).
 
 ## Merge-risk log
 | Change | Upstream file | Risk |
 |---|---|---|
 | Food Crafting `TabItem` block (5 lines, marked `[FORK]`) | `UserControls/CraftingControl.xaml` | low–medium (only if upstream edits the lines around the Loss Explorer tab) |
-| Nothing else | – | none |
+| 1 line calling `FoodOrderBookStore.CaptureFromGame` (marked `[FORK]`) | `Network/Handler/AuctionGetOffersResponseHandler.cs` | low (only if upstream rewrites this small handler) |

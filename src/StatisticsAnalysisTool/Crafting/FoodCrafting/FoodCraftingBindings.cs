@@ -83,6 +83,28 @@ public sealed class FoodCraftingBindings : BaseViewModel
     public ObservableCollection<FoodItemOption> FoodItemOptions { get; } = [];
     public ObservableCollection<FoodMissingPriceRow> MissingPriceRows { get; } = [];
 
+    public string OrderBookSummaryText
+    {
+        get;
+        private set
+        {
+            field = value;
+            OnPropertyChanged();
+        }
+    }
+    = "Open an item in the in-game market (Buy tab) while this tool runs to capture its sell orders.";
+
+    public string OrderBookCaptureText
+    {
+        get;
+        private set
+        {
+            field = value;
+            OnPropertyChanged();
+        }
+    }
+    = string.Empty;
+
     public string MissingPriceSummaryText
     {
         get;
@@ -198,6 +220,9 @@ public sealed class FoodCraftingBindings : BaseViewModel
         try
         {
             Settings = await FoodCraftingSettingsStore.LoadAsync();
+            await FoodCraftingSettingsStore.LoadOrderBooksAsync();
+            FoodOrderBookStore.Shared.Changed += OnOrderBooksChanged;
+            OnOrderBooksChanged();
             LoadFoodItemOptions();
         }
         catch (Exception e)
@@ -206,9 +231,34 @@ public sealed class FoodCraftingBindings : BaseViewModel
         }
     }
 
-    public Task SaveSettingsAsync()
+    public async Task SaveSettingsAsync()
     {
-        return FoodCraftingSettingsStore.SaveAsync(Settings);
+        await FoodCraftingSettingsStore.SaveAsync(Settings);
+        await FoodCraftingSettingsStore.SaveOrderBooksAsync();
+    }
+
+    private void OnOrderBooksChanged()
+    {
+        var settings = Settings;
+        if (settings == null)
+        {
+            return;
+        }
+
+        var maxAge = TimeSpan.FromMinutes(Math.Max(0, settings.OrderBookMaxAgeMinutes));
+        var count = FoodOrderBookStore.Shared.Count(settings.City, DateTime.UtcNow, maxAge);
+        var text = $"Captured sell orders in {Locations.GetDisplayName(settings.City)}: {count} items (last {settings.OrderBookMaxAgeMinutes} min). "
+                   + "Press \"Recalculate\" after browsing the market.";
+
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher == null || dispatcher.CheckAccess())
+        {
+            OrderBookCaptureText = text;
+        }
+        else
+        {
+            dispatcher.BeginInvoke(() => OrderBookCaptureText = text);
+        }
     }
 
     private void SetFishSauceMode(int level, FishSauceMode mode)
@@ -291,7 +341,7 @@ public sealed class FoodCraftingBindings : BaseViewModel
             _lastVolumes = volumes;
             _lastDownloadUtc = DateTime.UtcNow;
 
-            await RecalculateAsync(foods);
+            await RecalculateAsync(foods, names);
         }
         catch (OperationCanceledException)
         {
@@ -327,8 +377,8 @@ public sealed class FoodCraftingBindings : BaseViewModel
         {
             await SaveSettingsAsync();
             var settings = Settings;
-            var (foods, _) = await Task.Run(() => CollectItemNames(settings));
-            await RecalculateAsync(foods);
+            var (foods, names) = await Task.Run(() => CollectItemNames(settings));
+            await RecalculateAsync(foods, names);
         }
         catch (Exception e)
         {
@@ -341,7 +391,7 @@ public sealed class FoodCraftingBindings : BaseViewModel
         }
     }
 
-    private async Task RecalculateAsync(List<Item> foods)
+    private async Task RecalculateAsync(List<Item> foods, List<string> names)
     {
         var settings = Settings;
         var prices = _lastPrices ?? new Dictionary<string, FoodMarketPrice>();
@@ -352,48 +402,181 @@ public sealed class FoodCraftingBindings : BaseViewModel
         var result = await Task.Run(() =>
         {
             var nowUtc = DateTime.UtcNow;
-            var unitPrices = FoodPriceCheck.GetUsablePrices(prices, nowUtc, settings.MaxPriceAgeHours);
+            var basePrices = FoodPriceCheck.GetUsablePrices(prices, nowUtc, settings.MaxPriceAgeHours);
             var sauceRecipes = _catalog.GetFishSauceRecipes();
             var sauceReturnRate = FoodCandidateEvaluator.FishSauceReturnRatePercent;
-            var sauceCosts = new Dictionary<int, FishSauceCost>();
-            var sauceMissing = new Dictionary<int, IReadOnlyList<string>>();
+            var books = settings.UseOrderBooks
+                ? GetOrderBooks(names, settings, nowUtc)
+                : new Dictionary<string, FoodOrderBook>(StringComparer.OrdinalIgnoreCase);
 
-            for (var level = 1; level <= 3; level++)
+            // Start with the cheapest listed order, then re-plan with the average price for the planned quantity
+            // (buying more pushes the price up), a few rounds until the prices settle.
+            var bookPrices = books.ToDictionary(x => x.Key, x => (decimal) x.Value.MinPrice, StringComparer.OrdinalIgnoreCase);
+            EvaluationResult evaluation = null;
+
+            for (var round = 0; round < MaxOrderBookRounds; round++)
             {
-                var marketPrice = unitPrices.GetValueOrDefault(FishSauceRecipe.GetUniqueName(level));
-                var craftedCost = sauceRecipes.TryGetValue(level, out var recipe)
-                    ? FishSauceCalculator.GetCraftedCost(recipe, unitPrices, sauceReturnRate)
-                    : 0m;
-                sauceCosts[level] = FishSauceCalculator.Resolve(level, settings.GetFishSauceMode(level), marketPrice, craftedCost);
-                sauceMissing[level] = FishSauceCalculator.GetMissingPriceItems(sauceCosts[level], recipe, unitPrices);
+                var unitPrices = new Dictionary<string, decimal>(basePrices, StringComparer.OrdinalIgnoreCase);
+                foreach (var (uniqueName, price) in bookPrices)
+                {
+                    if (price > 0m)
+                    {
+                        unitPrices[uniqueName] = price;
+                    }
+                }
+
+                evaluation = EvaluateAll(foods, settings, volumes, unitPrices, sauceRecipes, sauceReturnRate);
+
+                if (books.Count == 0)
+                {
+                    break;
+                }
+
+                var quantities = evaluation.Shopping
+                    .GroupBy(x => x.UniqueName, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(x => x.Key, x => x.Sum(y => y.NetQuantityToBuy), StringComparer.OrdinalIgnoreCase);
+
+                var nextPrices = books.ToDictionary(
+                    x => x.Key,
+                    x => quantities.TryGetValue(x.Key, out var quantity) && quantity > 0
+                        ? Math.Round(FoodOrderBookCalculator.GetCost(x.Value, quantity).AverageUnitPrice, 2)
+                        : x.Value.MinPrice,
+                    StringComparer.OrdinalIgnoreCase);
+
+                if (nextPrices.All(x => bookPrices.TryGetValue(x.Key, out var old) && old == x.Value))
+                {
+                    break;
+                }
+
+                bookPrices = nextPrices;
             }
 
-            var context = new FoodEvaluationContext
-            {
-                Settings = settings,
-                UnitPrices = unitPrices,
-                DailyVolumes = volumes,
-                FishSauceCosts = sauceCosts,
-                FishSauceMissingItems = sauceMissing
-            };
+            var bookCosts = evaluation.Shopping
+                .Where(x => books.ContainsKey(x.UniqueName))
+                .GroupBy(x => x.UniqueName, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    x => x.Key,
+                    x => (Cost: FoodOrderBookCalculator.GetCost(books[x.Key], x.Sum(y => y.NetQuantityToBuy)), books[x.Key].UpdatedUtc),
+                    StringComparer.OrdinalIgnoreCase);
 
-            var candidates = foods.Select(x => _evaluator.Evaluate(x, context)).ToList();
-            var plan = FoodPlanner.Plan(candidates, new FoodPlanInput
-            {
-                FocusBudget = settings.FocusBudget,
-                MaxInvestment = settings.MaxInvestment,
-                DailyVolumeDivisor = settings.DailyVolumeDivisor,
-                MinProfitPerFocus = settings.MinProfitPerFocus
-            });
-            var shopping = FoodShoppingListBuilder.Build(plan, sauceRecipes, unitPrices, sauceReturnRate);
             var foodReturnRate = foods.Count > 0 ? _evaluator.GetFoodReturnRatePercent(foods[0], settings) : 0m;
-            var missingPrices = FoodMissingPriceListBuilder.Build(candidates, prices, nowUtc, settings.MaxPriceAgeHours);
+            var missingPrices = FoodMissingPriceListBuilder.Build(evaluation.Candidates, prices, nowUtc, settings.MaxPriceAgeHours);
 
-            return (candidates, plan, shopping, sauceCosts, sauceRecipes, sauceReturnRate, foodReturnRate, missingPrices);
+            return (candidates: evaluation.Candidates, plan: evaluation.Plan, shopping: evaluation.Shopping, sauceCosts: evaluation.SauceCosts,
+                sauceReturnRate, foodReturnRate, missingPrices, bookCosts, bookCount: books.Count);
         });
 
         ApplyResult(result.candidates, result.plan, result.shopping, result.sauceCosts, result.sauceReturnRate, result.foodReturnRate, settings);
         ApplyMissingPrices(result.missingPrices, result.candidates.Count(x => !x.IsValid));
+        ApplyOrderBookCosts(result.bookCosts, result.bookCount, settings);
+    }
+
+    private const int MaxOrderBookRounds = 4;
+
+    private sealed record EvaluationResult(
+        List<FoodCandidate> Candidates,
+        FoodPlan Plan,
+        IReadOnlyList<FoodShoppingItem> Shopping,
+        Dictionary<int, FishSauceCost> SauceCosts);
+
+    private EvaluationResult EvaluateAll(
+        List<Item> foods,
+        FoodCraftingSettings settings,
+        IReadOnlyDictionary<string, decimal> volumes,
+        Dictionary<string, decimal> unitPrices,
+        IReadOnlyDictionary<int, FishSauceRecipe> sauceRecipes,
+        decimal sauceReturnRate)
+    {
+        var sauceCosts = new Dictionary<int, FishSauceCost>();
+        var sauceMissing = new Dictionary<int, IReadOnlyList<string>>();
+
+        for (var level = 1; level <= 3; level++)
+        {
+            var marketPrice = unitPrices.GetValueOrDefault(FishSauceRecipe.GetUniqueName(level));
+            var craftedCost = sauceRecipes.TryGetValue(level, out var recipe)
+                ? FishSauceCalculator.GetCraftedCost(recipe, unitPrices, sauceReturnRate)
+                : 0m;
+            sauceCosts[level] = FishSauceCalculator.Resolve(level, settings.GetFishSauceMode(level), marketPrice, craftedCost);
+            sauceMissing[level] = FishSauceCalculator.GetMissingPriceItems(sauceCosts[level], recipe, unitPrices);
+        }
+
+        var context = new FoodEvaluationContext
+        {
+            Settings = settings,
+            UnitPrices = unitPrices,
+            DailyVolumes = volumes,
+            FishSauceCosts = sauceCosts,
+            FishSauceMissingItems = sauceMissing
+        };
+
+        var candidates = foods.Select(x => _evaluator.Evaluate(x, context)).ToList();
+        var plan = FoodPlanner.Plan(candidates, new FoodPlanInput
+        {
+            FocusBudget = settings.FocusBudget,
+            MaxInvestment = settings.MaxInvestment,
+            DailyVolumeDivisor = settings.DailyVolumeDivisor,
+            MinProfitPerFocus = settings.MinProfitPerFocus
+        });
+        var shopping = FoodShoppingListBuilder.Build(plan, sauceRecipes, unitPrices, sauceReturnRate);
+
+        return new EvaluationResult(candidates, plan, shopping, sauceCosts);
+    }
+
+    private static Dictionary<string, FoodOrderBook> GetOrderBooks(IEnumerable<string> names, FoodCraftingSettings settings, DateTime nowUtc)
+    {
+        var maxAge = TimeSpan.FromMinutes(Math.Max(0, settings.OrderBookMaxAgeMinutes));
+        var result = new Dictionary<string, FoodOrderBook>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var name in names)
+        {
+            var book = FoodOrderBookStore.Shared.Get(name, settings.City, nowUtc, maxAge);
+            if (book != null && book.MinPrice > 0)
+            {
+                result[name] = book;
+            }
+        }
+
+        return result;
+    }
+
+    private void ApplyOrderBookCosts(
+        IReadOnlyDictionary<string, (FoodOrderBookCost Cost, DateTime UpdatedUtc)> bookCosts,
+        int bookCount,
+        FoodCraftingSettings settings)
+    {
+        var rows = ShoppingRows.ToList();
+        ShoppingRows.Clear();
+        foreach (var row in rows)
+        {
+            var hasBook = bookCosts.TryGetValue(row.Item.UniqueName, out var book);
+            ShoppingRows.Add(new FoodShoppingRow
+            {
+                Item = row.Item,
+                Name = row.Name,
+                Icon = row.Icon,
+                BookCost = hasBook ? book.Cost : null,
+                BookUpdatedUtc = hasBook ? book.UpdatedUtc : default
+            });
+        }
+
+        var covered = ShoppingRows.Count(x => x.BookCost != null);
+        var shortItems = ShoppingRows.Count(x => x.IsShort);
+        var realCost = ShoppingRows.Sum(x => x.BookCost?.EstimatedTotalCost ?? x.Item.NetCost);
+
+        if (!settings.UseOrderBooks)
+        {
+            OrderBookSummaryText = "Using in-game sell orders is turned off.";
+        }
+        else if (ShoppingRows.Count == 0)
+        {
+            OrderBookSummaryText = $"{bookCount} needed items have captured sell orders in {Locations.GetDisplayName(settings.City)}.";
+        }
+        else
+        {
+            OrderBookSummaryText = $"Real cost from in-game sell orders: {covered} of {ShoppingRows.Count} items covered, shopping total ≈ {realCost:N0}"
+                                   + (shortItems > 0 ? $" | {shortItems} items not enough listed" : string.Empty)
+                                   + (covered < ShoppingRows.Count ? ". Open the other items in the market (Buy tab) to include them." : ".");
+        }
     }
 
     private void ApplyResult(
@@ -589,6 +772,26 @@ public sealed class FoodShoppingRow
     public FoodShoppingItem Item { get; init; }
     public string Name { get; init; }
     public BitmapImage Icon { get; init; }
+
+    /// <summary>Cost of the expected quantity from the captured in-game sell orders, null when none were captured.</summary>
+    public FoodOrderBookCost BookCost { get; init; }
+
+    public DateTime BookUpdatedUtc { get; init; }
+
+    public string ListedText => BookCost == null
+        ? "-"
+        : BookCost.FilledQuantity.ToString("N0", CultureInfo.CurrentCulture)
+          + (BookCost.IsEnoughListed ? string.Empty : " (short " + BookCost.MissingQuantity.ToString("N0", CultureInfo.CurrentCulture) + ")");
+
+    public string RealCostText => BookCost == null ? "-" : BookCost.EstimatedTotalCost.ToString("N0", CultureInfo.CurrentCulture);
+
+    public string RealUnitPriceText => BookCost == null
+        ? "-"
+        : BookCost.AverageUnitPrice.ToString("N1", CultureInfo.CurrentCulture)
+          + " (max " + BookCost.MaxPrice.ToString("N0", CultureInfo.CurrentCulture) + ")";
+
+    public string BookAgeText => BookCost == null ? "Not captured" : FoodMissingPriceItem.FormatMinutes((DateTime.UtcNow - BookUpdatedUtc).TotalMinutes);
+    public bool IsShort => BookCost is { IsEnoughListed: false };
     public string UsageText => Item?.IsForFishSauce == true ? "Fish sauce" : "Food";
 }
 

@@ -22,6 +22,12 @@ public class FoodCraftingSettings
     public int MaxPriceAgeHours { get; set; } = 24;
     public int VolumeDays { get; set; } = 7;
 
+    /// <summary>Use the sell orders captured in-game (market page opened) for ingredient prices.</summary>
+    public bool UseOrderBooks { get; set; } = true;
+
+    /// <summary>Captured sell orders older than this are ignored. 0 = no limit.</summary>
+    public int OrderBookMaxAgeMinutes { get; set; } = 120;
+
     public bool IncludeEnchantment0 { get; set; } = true;
     public bool IncludeEnchantment1 { get; set; } = true;
     public bool IncludeEnchantment2 { get; set; } = true;

@@ -1,6 +1,7 @@
 using Serilog;
 using StatisticsAnalysisTool.Common;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace StatisticsAnalysisTool.Crafting.FoodCrafting;
@@ -9,6 +10,37 @@ namespace StatisticsAnalysisTool.Crafting.FoodCrafting;
 public static class FoodCraftingSettingsStore
 {
     private const string FileName = "FoodCrafting.json";
+    private const string OrderBooksFileName = "FoodCraftingOrderBooks.json";
+
+    public static async Task LoadOrderBooksAsync()
+    {
+        try
+        {
+            var books = await FileController.LoadAsync<List<FoodOrderBook>>(AppDataPaths.UserDataFile(OrderBooksFileName)).ConfigureAwait(false);
+            FoodOrderBookStore.Shared.Load(books, DateTime.UtcNow);
+        }
+        catch (Exception e)
+        {
+            Log.Warning(e, "Food crafting order books could not be loaded");
+        }
+    }
+
+    public static async Task SaveOrderBooksAsync()
+    {
+        if (!AppDataPaths.TryEnsureUserDataDirectory())
+        {
+            return;
+        }
+
+        try
+        {
+            await FileController.SaveAsync(FoodOrderBookStore.Shared.GetAll(), AppDataPaths.UserDataFile(OrderBooksFileName)).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            Log.Warning(e, "Food crafting order books could not be saved");
+        }
+    }
 
     public static async Task<FoodCraftingSettings> LoadAsync()
     {
@@ -53,6 +85,7 @@ public static class FoodCraftingSettingsStore
         }
 
         settings.MaxInvestment = Math.Max(0m, settings.MaxInvestment);
+        settings.OrderBookMaxAgeMinutes = Math.Max(0, settings.OrderBookMaxAgeMinutes);
 
         return settings;
     }
