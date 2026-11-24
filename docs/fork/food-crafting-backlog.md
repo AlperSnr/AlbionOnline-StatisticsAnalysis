@@ -30,6 +30,9 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
   Checked again with T5 Cabbage Soup: 43,140 FCE → 25.3 focus per craft. Setting renamed to
   `FceExtraPerOwnSpecializationLevel` so an old saved 280 is not double-counted.
   The game shows focus rounded (34) but really uses decimals (33.8 × 5 crafts = 169).
+- **Focus is per crafted item, not per craft (fixed 2026-11-24).** `@craftingfocus` and the in-game number are per item;
+  one craft of a 10-item recipe costs 10× (Cabbage Soup: 25.3 per soup → 253 per craft). Before the fix the plan
+  showed ~10× too little focus (user: plan 670, real batch ~7k). `FoodFocusCalculator.GetFocusPerCraft`.
 - **Fish sauce:** no focus toggle and **0% return rate** when crafted (verified in-game).
 - **Station fee:** T1 and T2 recipes cost no station fee (verified in-game) → fish sauce (T1) is free to craft,
   T1/T2 foods are calculated without a fee.

@@ -346,7 +346,8 @@ public sealed class FoodCraftingBindings : BaseViewModel
                 UniqueName = item.UniqueName,
                 DisplayName = $"{item.LocalizedName} (T{item.Tier}.{item.Level})",
                 Category = FoodRecipeCatalog.GetCategory(item),
-                BaseFocus = _catalog.GetBaseFocus(item)
+                BaseFocus = _catalog.GetBaseFocus(item),
+                AmountCrafted = _catalog.RecipeResolver.GetAmountCrafted(item)
             });
         }
     }
@@ -362,7 +363,9 @@ public sealed class FoodCraftingBindings : BaseViewModel
 
         var fce = FoodFocusCalculator.GetFocusCostEfficiency(Settings.DestinyBoard, option.Category);
         var calculated = FoodFocusCalculator.GetFocusCost(option.BaseFocus, fce);
-        var text = $"Base focus {option.BaseFocus:N0} | Your FCE {fce:N0} ({FoodCategories.GetDisplayName(option.Category)}) | Calculated {calculated:N1}";
+        var amount = Math.Max(1, option.AmountCrafted);
+        var text = $"Base focus {option.BaseFocus:N0} per item | Your FCE {fce:N0} ({FoodCategories.GetDisplayName(option.Category)}) | "
+                   + $"Calculated {calculated:N1} per item = {calculated * amount:N1} per craft of {amount}";
 
         if (CalibrationInGameFocus > 0m)
         {
@@ -883,7 +886,10 @@ public sealed class FoodItemOption
     public string UniqueName { get; init; }
     public string DisplayName { get; init; }
     public string Category { get; init; }
+    /// <summary>Base focus per crafted item (@craftingfocus).</summary>
     public decimal BaseFocus { get; init; }
+
+    public int AmountCrafted { get; init; } = 1;
 }
 
 public sealed class FoodCandidateRow

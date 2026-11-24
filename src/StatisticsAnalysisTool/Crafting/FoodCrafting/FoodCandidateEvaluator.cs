@@ -103,7 +103,7 @@ public sealed class FoodCandidateEvaluator
         var amountCrafted = _catalog.RecipeResolver.GetAmountCrafted(item);
         var baseFocus = _catalog.GetBaseFocus(item);
         var fce = FoodFocusCalculator.GetFocusCostEfficiency(settings.DestinyBoard, category);
-        var focusPerCraft = FoodFocusCalculator.GetFocusCost(baseFocus, fce);
+        var focusPerCraft = FoodFocusCalculator.GetFocusPerCraft(baseFocus, fce, amountCrafted);
         var returnRate = GetFoodReturnRatePercent(item, settings);
         var sellPrice = context.UnitPrices.GetValueOrDefault(item.UniqueName);
         var dailyVolume = context.DailyVolumes.GetValueOrDefault(item.UniqueName);
@@ -202,7 +202,7 @@ public sealed class FoodCandidateEvaluator
             AmountCrafted = amountCrafted,
             SellPrice = sellPrice,
             ReturnRatePercent = returnRate,
-            BaseFocusPerCraft = baseFocus,
+            BaseFocusPerCraft = baseFocus * Math.Max(1, amountCrafted),
             FocusCostEfficiency = fce,
             FocusPerCraft = focusPerCraft,
             CostPerCraft = result.TotalCosts,

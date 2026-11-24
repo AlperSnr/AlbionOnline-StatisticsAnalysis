@@ -52,6 +52,16 @@ public static class FoodFocusCalculator
     }
 
     /// <summary>
+    /// Focus for one craft run. The game's @craftingfocus and the focus shown in-game are per crafted item
+    /// (verified: T5 Cabbage Soup shows 25.3 per soup, one craft of 10 soups costs 253), so one craft costs
+    /// the per-item focus × the amount crafted.
+    /// </summary>
+    public static decimal GetFocusPerCraft(decimal baseFocusPerItem, decimal focusCostEfficiency, int amountCrafted)
+    {
+        return GetFocusCost(baseFocusPerItem, focusCostEfficiency) * Math.Max(1, amountCrafted);
+    }
+
+    /// <summary>
     /// Reverse calculation: which FCE gives the in-game focus cost? Used to check the formula.
     /// </summary>
     public static decimal GetImpliedFocusCostEfficiency(decimal baseFocus, decimal actualFocus)
