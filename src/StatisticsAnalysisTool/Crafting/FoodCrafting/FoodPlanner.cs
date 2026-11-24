@@ -47,6 +47,11 @@ public sealed class FoodPlan
     public decimal TotalRevenue => Entries.Sum(x => x.Revenue);
     public int TotalItems => Entries.Sum(x => x.Items);
     public decimal RemainingFocus => Math.Max(0m, FocusBudget - TotalFocus);
+
+    /// <summary>Focus above the budget (only possible for a locked plan).</summary>
+    public decimal FocusOverBudget => FocusBudget > 0m ? Math.Max(0m, TotalFocus - FocusBudget) : 0m;
+
+    public bool IsOverFocusBudget => FocusOverBudget > 0m;
     public decimal ProfitPerFocus => TotalFocus > 0m ? TotalProfit / TotalFocus : 0m;
     public decimal RemainingInvestment => MaxInvestment > 0m ? Math.Max(0m, MaxInvestment - TotalInvestment) : 0m;
 }

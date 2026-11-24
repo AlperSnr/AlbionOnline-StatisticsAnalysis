@@ -786,6 +786,11 @@ public sealed class FoodCraftingBindings : BaseViewModel
         var missing = candidates.Count - valid;
         var age = _lastDownloadUtc == default ? string.Empty : $" Prices downloaded {_lastDownloadUtc.ToLocalTime():t}.";
         var lockText = plan.IsLocked ? $"PLAN LOCKED ({plan.Entries.Count} foods, unlock to re-plan). " : string.Empty;
+        if (plan.IsOverFocusBudget)
+        {
+            lockText = $"⚠ OVER FOCUS BUDGET by {plan.FocusOverBudget:N0} (locked plan needs {plan.TotalFocus:N0}). Unlock and Recalculate to fit the budget. "
+                       + lockText;
+        }
         StatusText = lockText + $"{candidates.Count} foods checked: {valid} with prices, {missing} skipped (see \"Missing / outdated prices\"), "
                      + $"{Candidates.Count} profitable. Plan: {plan.Entries.Count} foods, {plan.TotalFocus:N0} of {plan.FocusBudget:N0} focus"
                      + (plan.MaxInvestment > 0m ? $", {plan.TotalInvestment:N0} of {plan.MaxInvestment:N0} silver" : string.Empty)

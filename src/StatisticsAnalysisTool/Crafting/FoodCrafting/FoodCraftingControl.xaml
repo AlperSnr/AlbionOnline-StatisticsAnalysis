@@ -335,7 +335,18 @@
                 <Border Style="{StaticResource Food.Tile}">
                     <StackPanel>
                         <TextBlock Text="Focus used" Style="{StaticResource Food.TileLabel}" />
-                        <TextBlock Text="{Binding Plan.TotalFocus, StringFormat=N0, FallbackValue=0}" Style="{StaticResource Food.TileValue}" />
+                        <TextBlock Text="{Binding Plan.TotalFocus, StringFormat=N0, FallbackValue=0}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Food.TileValue}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Plan.IsOverFocusBudget}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource SolidColorBrush.Accent.Red.2}" />
+                                            <Setter Property="ToolTip" Value="More than the focus budget. The plan is locked; unlock and Recalculate to fit." />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
                 </Border>
                 <Border Style="{StaticResource Food.Tile}">

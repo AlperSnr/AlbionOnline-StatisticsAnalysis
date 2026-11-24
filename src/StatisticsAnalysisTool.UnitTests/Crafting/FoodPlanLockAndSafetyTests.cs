@@ -112,4 +112,29 @@ public class FoodPlanLockAndSafetyTests
         settings.IsPlanLocked.Should().BeFalse();
         settings.ShoppingSafetyMargin.Should().Be(5m);
     }
+
+    [Test]
+    public void LockedPlan_ReportsFocusOverBudget()
+    {
+        var candidates = new[] { new FoodCandidate { UniqueName = "PIE", AmountCrafted = 10, FocusPerCraft = 500m, DailyVolume = 1000m } };
+
+        var plan = FoodPlanner.FromLocked(candidates, [new FoodLockedPlanEntry { UniqueName = "PIE", Crafts = 30 }],
+            new FoodPlanInput { FocusBudget = 10000m, DailyVolumeDivisor = 10m });
+
+        plan.TotalFocus.Should().Be(15000m);
+        plan.IsOverFocusBudget.Should().BeTrue();
+        plan.FocusOverBudget.Should().Be(5000m);
+        plan.RemainingFocus.Should().Be(0m);
+    }
+
+    [Test]
+    public void Planner_NeverGoesOverFocusBudget()
+    {
+        var candidates = new[] { new FoodCandidate { UniqueName = "PIE", AmountCrafted = 10, FocusPerCraft = 253.4m, ProfitPerCraft = 1000m, DailyVolume = 100000m } };
+
+        var plan = FoodPlanner.Plan(candidates, new FoodPlanInput { FocusBudget = 10000m, DailyVolumeDivisor = 10m });
+
+        plan.TotalFocus.Should().BeLessThanOrEqualTo(10000m);
+        plan.IsOverFocusBudget.Should().BeFalse();
+    }
 }

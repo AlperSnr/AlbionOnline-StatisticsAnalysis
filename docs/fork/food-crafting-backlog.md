@@ -79,6 +79,7 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
       listed amount (red when short), real average/max price, real cost and order age. Settings: on/off, max order age (120 min).
 - [x] D11. Lock plan: the lock button keeps the planned foods + crafts fixed (saved, survives restart).
       Prices, profit and the shopping list still update; locked foods are kept even if filters change.
+      A locked plan is not cut to the focus budget: the status line and the "Focus used" tile turn red when it is over.
 - [x] D12. Shopping safety margin: returns are random, so 'Buy (safe)' = expected + N standard deviations
       (binomial per unit, default 2 = about 98% enough), never more than the no-return quantity.
       Order-book real cost uses the safe quantity.
