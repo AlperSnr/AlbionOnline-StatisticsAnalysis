@@ -455,11 +455,17 @@
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
                         <GridViewColumn Header="Item" Width="180" DisplayMemberBinding="{Binding Name}" />
-                        <GridViewColumn Header="To buy" Width="65">
+                        <GridViewColumn Header="To buy" Width="80">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding Item.QuantityToBuy, StringFormat=N0}" FontWeight="Bold"
-                                               ToolTip="Needed (safe) minus what you already own." />
+                                    <TextBlock x:Name="ToBuyText" Text="{Binding Item.QuantityToBuy, StringFormat=N0}" FontWeight="Bold"
+                                               ToolTip="{Binding ToBuyDetailsText}" />
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsCoveredByOwned}" Value="True">
+                                            <Setter TargetName="ToBuyText" Property="Text" Value="0 (owned)" />
+                                            <Setter TargetName="ToBuyText" Property="Foreground" Value="{StaticResource SolidColorBrush.Accent.Green.2}" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>

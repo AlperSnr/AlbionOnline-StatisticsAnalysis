@@ -1109,6 +1109,14 @@ public sealed class FoodShoppingRow
 
     public string AvgPriceText => BookCost == null || Item?.QuantityToBuy <= 0 ? "-" : BookCost.AverageUnitPrice.ToString("N1", CultureInfo.CurrentCulture);
 
+    /// <summary>Why "To buy" is what it is: need − bank − entered by hand.</summary>
+    public string ToBuyDetailsText => Item == null
+        ? string.Empty
+        : $"Need (safe) {Item.SafeQuantityToBuy:N0} − in bank {BankOwned:N0} − owned (extra) {ManualOwned:N0} = {Item.QuantityToBuy:N0} to buy."
+          + (BankOwned > 0 ? " Bank amounts come from Storage History (last time the chest was opened). Turn off \"Use bank contents\" to ignore them." : string.Empty);
+
+    public bool IsCoveredByOwned => Item is { QuantityToBuy: 0, SafeQuantityToBuy: > 0 };
+
     public string QuantityDetailsText => Item == null
         ? string.Empty
         : $"Expected {Item.NetQuantityToBuy:N0} + {Item.SafetyExtra:N0} safety = {Item.SafeQuantityToBuy:N0}. "
