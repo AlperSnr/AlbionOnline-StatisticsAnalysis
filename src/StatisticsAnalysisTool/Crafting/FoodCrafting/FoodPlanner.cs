@@ -175,3 +175,22 @@ public static class FoodPlanner
         };
     }
 }
+
+/// <summary>Display order of the plan: same food types together (all soups...), most profitable type first, then by tier.</summary>
+public static class FoodPlanRowOrder
+{
+    public static List<FoodPlanEntry> Sort(IEnumerable<FoodPlanEntry> entries)
+    {
+        var list = (entries ?? []).Where(x => x?.Candidate != null).ToList();
+        var groupProfit = list
+            .GroupBy(x => FoodItemGrouping.GetGroupKey(x.Candidate.UniqueName))
+            .ToDictionary(x => x.Key, x => x.Sum(y => y.Profit));
+
+        return list
+            .OrderByDescending(x => groupProfit[FoodItemGrouping.GetGroupKey(x.Candidate.UniqueName)])
+            .ThenBy(x => FoodItemGrouping.GetGroupKey(x.Candidate.UniqueName), StringComparer.Ordinal)
+            .ThenBy(x => FoodItemGrouping.GetTier(x.Candidate.UniqueName))
+            .ThenBy(x => FoodItemGrouping.GetEnchantment(x.Candidate.UniqueName))
+            .ToList();
+    }
+}

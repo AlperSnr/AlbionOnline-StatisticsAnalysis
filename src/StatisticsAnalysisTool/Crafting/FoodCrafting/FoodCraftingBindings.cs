@@ -842,7 +842,7 @@ public sealed class FoodCraftingBindings : BaseViewModel
         }
 
         PlanRows.Clear();
-        foreach (var entry in plan.Entries)
+        foreach (var entry in FoodPlanRowOrder.Sort(plan.Entries))
         {
             PlanRows.Add(new FoodPlanRow
             {
@@ -1119,7 +1119,9 @@ public sealed class FoodShoppingRow
 
     public string QuantityDetailsText => Item == null
         ? string.Empty
-        : $"Expected {Item.NetQuantityToBuy:N0} + {Item.SafetyExtra:N0} safety = {Item.SafeQuantityToBuy:N0}. "
+        : $"Expected {Item.NetQuantityToBuy:N0}"
+          + (Item.LastCraftExtra > 0 ? $" + {Item.LastCraftExtra:N0} for the last craft (its returns come too late)" : string.Empty)
+          + $" + {Item.SafetyExtra:N0} safety = {Item.SafeQuantityToBuy:N0}. "
           + $"Without any returns: {Item.GrossQuantityToBuy:N0}. Expected cost at market price: {Item.NetCost:N0}.";
 
     public string RealUnitPriceText => BookCost == null

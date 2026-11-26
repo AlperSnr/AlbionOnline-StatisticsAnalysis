@@ -91,6 +91,11 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
       plan table shows "Buy orders" (red when not enough). Buy orders captured via a 2nd `[FORK]` hook.
 - [~] D15. Layout fits the window width (no page-wide horizontal scroll, fields wrap, narrower tables).
       Shopping list: To buy → Buy up to (max sell order reached) → Avg price → Real cost first; details in tooltips.
+- [~] D16. Plan and shopping list keep same item types together (all milks, all soups...), ordered by tier;
+      the type with the highest cost (shopping) / profit (plan) comes first. Fish sauce ingredients stay last.
+- [~] D17. Last craft gets no returns: returns arrive after a craft, so the biggest single craft of each ingredient
+      (and fish sauce level) is counted without returns. A single craft needs the full quantity. Safety margin
+      variance excludes that craft. Tooltip on "Need (safe)" shows the extra.
 
 ## Open questions / things to check in-game
 - [x] Q1. Focus formula constants → verified (own spec 250 + 30).

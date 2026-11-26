@@ -38,17 +38,35 @@ public sealed class FoodShoppingItem
     public decimal FishSauceGrossQuantity { get; init; }
     public decimal FishSauceSafeQuantity { get; init; }
 
+    /// <summary>
+    /// Returns of the last craft come too late to be used, so that craft needs its full quantity.
+    /// This is the part of one craft that comes back (gross - net of the biggest craft using the item).
+    /// With a single craft this makes the need the full quantity without returns.
+    /// </summary>
+    public decimal LastCraftReturn { get; init; }
+
+    /// <summary>Expected quantity when the returns of all crafts except the last are re-used.</summary>
+    public decimal ExpectedQuantity => Math.Min(
+                                           GrossQuantity - FishSauceGrossQuantity,
+                                           NetQuantity - FishSauceNetQuantity + Math.Max(0m, LastCraftReturn))
+                                       + FishSauceNetQuantity;
+
     /// <summary>Expected quantity + safety margin, never more than the quantity without any returns.</summary>
     public decimal SafeQuantity => Math.Min(
                                        GrossQuantity - FishSauceGrossQuantity,
-                                       NetQuantity - FishSauceNetQuantity
+                                       NetQuantity - FishSauceNetQuantity + Math.Max(0m, LastCraftReturn)
                                        + Math.Max(0m, SafetyMarginSigma) * (decimal) Math.Sqrt((double) Math.Max(0m, ReturnVariance)))
                                    + FishSauceSafeQuantity;
 
     public int NetQuantityToBuy => (int) Math.Ceiling(NetQuantity);
     public int GrossQuantityToBuy => (int) Math.Ceiling(GrossQuantity);
-    public int SafeQuantityToBuy => Math.Max(NetQuantityToBuy, (int) Math.Ceiling(SafeQuantity));
-    public int SafetyExtra => SafeQuantityToBuy - NetQuantityToBuy;
+    public int ExpectedQuantityToBuy => Math.Max(NetQuantityToBuy, (int) Math.Ceiling(ExpectedQuantity));
+
+    /// <summary>Extra because the last craft's returns can't be used.</summary>
+    public int LastCraftExtra => ExpectedQuantityToBuy - NetQuantityToBuy;
+
+    public int SafeQuantityToBuy => Math.Max(ExpectedQuantityToBuy, (int) Math.Ceiling(SafeQuantity));
+    public int SafetyExtra => SafeQuantityToBuy - ExpectedQuantityToBuy;
     public decimal SafeCost => SafeQuantityToBuy * UnitPrice;
 
     /// <summary>Already owned (bank + entered by hand), at most the needed safe quantity.</summary>
@@ -129,7 +147,7 @@ public static class FoodShoppingListBuilder
         int GetOwned(string uniqueName) => uniqueName != null && ownedByName.TryGetValue(uniqueName, out var quantity) ? quantity : 0;
         var sigma = Math.Max(0m, safetyMarginSigma);
         var totals = new Dictionary<string, ShoppingTotal>(StringComparer.OrdinalIgnoreCase);
-        var sauceNeeds = new SortedDictionary<int, (decimal Net, decimal Gross, decimal Variance)>();
+        var sauceNeeds = new SortedDictionary<int, (decimal Net, decimal Gross, decimal Variance, decimal LastReturn, decimal LastVariance)>();
 
         ShoppingTotal Get(string uniqueName)
         {
@@ -155,10 +173,16 @@ public static class FoodShoppingListBuilder
 
                 var variance = GetReturnVariance(net, gross);
 
+                // The last craft's returns can't be used any more: keep the biggest single craft (on the safe side).
+                var oneCraftReturn = Math.Max(0m, resource.GrossQuantityPerCraft - resource.NetQuantityPerCraft);
+                var oneCraftVariance = GetReturnVariance(resource.NetQuantityPerCraft, resource.GrossQuantityPerCraft);
+
                 if (resource.IsCraftedSauce && sauceRecipes != null && sauceRecipes.ContainsKey(resource.FishSauceLevel))
                 {
                     sauceNeeds.TryGetValue(resource.FishSauceLevel, out var need);
-                    sauceNeeds[resource.FishSauceLevel] = (need.Net + net, need.Gross + gross, need.Variance + variance);
+                    var isBiggest = oneCraftReturn > need.LastReturn;
+                    sauceNeeds[resource.FishSauceLevel] = (need.Net + net, need.Gross + gross, need.Variance + variance,
+                        isBiggest ? oneCraftReturn : need.LastReturn, isBiggest ? oneCraftVariance : need.LastVariance);
                     continue;
                 }
 
@@ -166,6 +190,11 @@ public static class FoodShoppingListBuilder
                 total.Net += net;
                 total.Gross += gross;
                 total.Variance += variance;
+                if (oneCraftReturn > total.LastReturn)
+                {
+                    total.LastReturn = oneCraftReturn;
+                    total.LastVariance = oneCraftVariance;
+                }
                 if (resource.UnitPrice > 0m)
                 {
                     total.Price = resource.UnitPrice;
@@ -182,8 +211,9 @@ public static class FoodShoppingListBuilder
             var recipe = sauceRecipes[level];
             var sauceName = recipe.UniqueName ?? FishSauceRecipe.GetUniqueName(level);
             var amountCrafted = Math.Max(1, recipe.AmountCrafted);
-            var safeSauces = (int) Math.Ceiling(Math.Min(need.Gross, need.Net + sigma * Sqrt(need.Variance)));
-            safeSauces = Math.Max(safeSauces, (int) Math.Ceiling(need.Net));
+            var expectedSauces = Math.Min(need.Gross, need.Net + need.LastReturn);
+            var safeSauces = (int) Math.Ceiling(Math.Min(need.Gross, expectedSauces + sigma * Sqrt(need.Variance - need.LastVariance)));
+            safeSauces = Math.Max(safeSauces, (int) Math.Ceiling(expectedSauces));
             var ownedSauces = Math.Min(GetOwned(sauceName), safeSauces);
             var saucesToCraft = safeSauces - ownedSauces;
             var crafts = (int) Math.Ceiling(saucesToCraft / (decimal) amountCrafted);
@@ -242,15 +272,26 @@ public static class FoodShoppingListBuilder
                 GrossQuantity = Round(x.Value.Gross),
                 UnitPrice = x.Value.Price,
                 IsForFishSauce = x.Value.ForSauce,
-                ReturnVariance = Round(x.Value.Variance),
+                ReturnVariance = Round(Math.Max(0m, x.Value.Variance - x.Value.LastVariance)),
+                LastCraftReturn = Round(x.Value.LastReturn),
                 SafetyMarginSigma = sigma,
                 FishSauceNetQuantity = Round(x.Value.SauceNet),
                 FishSauceGrossQuantity = Round(x.Value.SauceGross),
                 FishSauceSafeQuantity = x.Value.SauceSafe
             })
             .Select(x => x.OwnedQuantity <= x.SafeQuantityToBuy ? x : CopyWithOwned(x, x.SafeQuantityToBuy))
+            .ToList();
+
+        // Same item types together (all milks, all fish...); the most expensive type first, then by tier.
+        var groupCost = items
+            .GroupBy(x => FoodItemGrouping.GetGroupKey(x.UniqueName))
+            .ToDictionary(x => x.Key, x => x.Sum(y => y.NetCost));
+        items = items
             .OrderBy(x => x.IsForFishSauce)
-            .ThenByDescending(x => x.NetCost)
+            .ThenByDescending(x => groupCost[FoodItemGrouping.GetGroupKey(x.UniqueName)])
+            .ThenBy(x => FoodItemGrouping.GetGroupKey(x.UniqueName), StringComparer.Ordinal)
+            .ThenBy(x => FoodItemGrouping.GetTier(x.UniqueName))
+            .ThenBy(x => FoodItemGrouping.GetEnchantment(x.UniqueName))
             .ToList();
 
         return new FoodShoppingResult { Items = items, FishSauceCrafts = sauceCrafts };
@@ -270,6 +311,7 @@ public static class FoodShoppingListBuilder
             FishSauceNetQuantity = item.FishSauceNetQuantity,
             FishSauceGrossQuantity = item.FishSauceGrossQuantity,
             FishSauceSafeQuantity = item.FishSauceSafeQuantity,
+            LastCraftReturn = item.LastCraftReturn,
             OwnedQuantity = owned
         };
     }
@@ -295,5 +337,7 @@ public static class FoodShoppingListBuilder
         public decimal SauceNet;
         public decimal SauceGross;
         public decimal SauceSafe;
+        public decimal LastReturn;
+        public decimal LastVariance;
     }
 }

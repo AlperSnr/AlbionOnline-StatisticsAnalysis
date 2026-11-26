@@ -37,13 +37,16 @@ public class FoodPlanLockAndSafetyTests
     [Test]
     public void SafeQuantity_AddsStandardDeviationsOfReturns()
     {
-        // 2 crafts × 24 = 48 gross, 43.5% RRR → net 27.12. Variance = 48 × 0.435 × 0.565 = 11.797 → σ ≈ 3.435
+        // 2 crafts × 24 = 48 gross, 43.5% RRR → net 27.12. The last craft's 10.44 returns come too late → 37.56.
+        // Variance of the first craft only = 24 × 0.435 × 0.565 = 5.899 → σ ≈ 2.4287
         var item = FoodShoppingListBuilder.Build(PlanWith(2, 24m, 13.56m), null, null, 0m, 2m).Single();
 
         item.NetQuantityToBuy.Should().Be(28);
-        item.SafeQuantity.Should().BeApproximately(27.12m + 2m * 3.4347m, 0.01m);
-        item.SafeQuantityToBuy.Should().Be(34);
-        item.SafetyExtra.Should().Be(6);
+        item.ExpectedQuantityToBuy.Should().Be(38);
+        item.LastCraftExtra.Should().Be(10);
+        item.SafeQuantity.Should().BeApproximately(37.56m + 2m * 2.4287m, 0.01m);
+        item.SafeQuantityToBuy.Should().Be(43);
+        item.SafetyExtra.Should().Be(5);
         item.GrossQuantityToBuy.Should().Be(48);
     }
 
@@ -61,7 +64,39 @@ public class FoodPlanLockAndSafetyTests
     {
         var item = FoodShoppingListBuilder.Build(PlanWith(5, 24m, 13.56m), null, null, 0m, 0m).Single();
 
-        item.SafeQuantityToBuy.Should().Be(item.NetQuantityToBuy);
+        item.SafeQuantityToBuy.Should().Be(item.ExpectedQuantityToBuy);
+    }
+
+    [Test]
+    public void SingleCraft_NeedsFullQuantity_EvenWithoutSafetyMargin()
+    {
+        // Crafting once: returns only come after the craft, so all 24 are needed to start it.
+        var item = FoodShoppingListBuilder.Build(PlanWith(1, 24m, 13.56m), null, null, 0m, 0m).Single();
+
+        item.NetQuantityToBuy.Should().Be(14);
+        item.SafeQuantityToBuy.Should().Be(24);
+        item.LastCraftExtra.Should().Be(10);
+    }
+
+    [Test]
+    public void IngredientShared_ByTwoFoods_OnlyLastCraftLosesReturns()
+    {
+        static FoodPlanEntry Food(string name, decimal gross, decimal net) => new()
+        {
+            Crafts = 1,
+            Candidate = new FoodCandidate
+            {
+                UniqueName = name,
+                AmountCrafted = 10,
+                Resources = [new FoodCandidateResource { UniqueName = "T6_MILK", GrossQuantityPerCraft = gross, NetQuantityPerCraft = net, UnitPrice = 1m }]
+            }
+        };
+
+        // Net 10 + 20 = 30; the biggest single craft returns 20 → 50 expected (gross 60).
+        var plan = new FoodPlan { Entries = [Food("T6_MEAL_A", 20m, 10m), Food("T6_MEAL_B", 40m, 20m)] };
+        var item = FoodShoppingListBuilder.Build(plan, null, null, 0m, 0m).Single();
+
+        item.SafeQuantityToBuy.Should().Be(50);
     }
 
     [Test]
