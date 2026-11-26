@@ -13,6 +13,12 @@ public class FoodCraftingSettings
     public decimal SalesTaxPercent { get; set; } = 4m;
     public decimal SetupFeePercent { get; set; } = 2.5m;
 
+    /// <summary>How the food is sold: own sell order (wait, setup fee) or instantly to buy orders (no setup fee).</summary>
+    public FoodSellMode SellMode { get; set; } = FoodSellMode.SellOrder;
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsInstantSell => SellMode == FoodSellMode.InstantSell;
+
     public decimal FocusBudget { get; set; } = 10000m;
 
     /// <summary>Max silver to invest in one plan (expected material cost + station fee). 0 = no limit.</summary>
@@ -157,6 +163,15 @@ public class FoodSpecializationLevel
 
     [System.Text.Json.Serialization.JsonIgnore]
     public string DisplayName => FoodCategories.GetDisplayName(Category);
+}
+
+public enum FoodSellMode
+{
+    /// <summary>Place a sell order at the lowest current sell price and wait (setup fee + tax).</summary>
+    SellOrder,
+
+    /// <summary>Sell immediately to the highest buy orders (tax only, no setup fee).</summary>
+    InstantSell
 }
 
 public enum FishSauceMode

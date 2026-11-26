@@ -33,6 +33,40 @@ public static class FoodPriceCheck
         return FoodPriceStatus.Ok;
     }
 
+    /// <summary>Status of the highest buy order (what you get when selling instantly).</summary>
+    public static FoodPriceStatus GetBuyStatus(FoodMarketPrice price, DateTime nowUtc, int maxPriceAgeHours)
+    {
+        if (price == null || price.BuyPriceMax == 0)
+        {
+            return FoodPriceStatus.NoData;
+        }
+
+        if (maxPriceAgeHours > 0 && (nowUtc - price.BuyPriceMaxDateUtc).TotalHours > maxPriceAgeHours)
+        {
+            return FoodPriceStatus.Outdated;
+        }
+
+        return FoodPriceStatus.Ok;
+    }
+
+    /// <summary>Highest buy order prices that are present and not older than the max price age.</summary>
+    public static Dictionary<string, decimal> GetUsableBuyPrices(
+        IReadOnlyDictionary<string, FoodMarketPrice> prices,
+        DateTime nowUtc,
+        int maxPriceAgeHours)
+    {
+        var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (uniqueName, price) in prices ?? new Dictionary<string, FoodMarketPrice>())
+        {
+            if (GetBuyStatus(price, nowUtc, maxPriceAgeHours) == FoodPriceStatus.Ok)
+            {
+                result[uniqueName] = price.BuyPriceMax;
+            }
+        }
+
+        return result;
+    }
+
     /// <summary>Sell order prices that are present and not older than the max price age.</summary>
     public static Dictionary<string, decimal> GetUsablePrices(
         IReadOnlyDictionary<string, FoodMarketPrice> prices,
@@ -107,7 +141,8 @@ public static class FoodMissingPriceListBuilder
         IEnumerable<FoodCandidate> candidates,
         IReadOnlyDictionary<string, FoodMarketPrice> prices,
         DateTime nowUtc,
-        int maxPriceAgeHours)
+        int maxPriceAgeHours,
+        bool foodUsesBuyOrders = false)
     {
         var blocked = new Dictionary<string, (bool IsFood, List<string> Foods)>(StringComparer.OrdinalIgnoreCase);
 
@@ -137,21 +172,26 @@ public static class FoodMissingPriceListBuilder
             .Select(x =>
             {
                 var price = prices?.GetValueOrDefault(x.Key);
-                var status = FoodPriceCheck.GetStatus(price, nowUtc, maxPriceAgeHours);
+                var useBuy = foodUsesBuyOrders && x.Value.IsFood;
+                var status = useBuy
+                    ? FoodPriceCheck.GetBuyStatus(price, nowUtc, maxPriceAgeHours)
+                    : FoodPriceCheck.GetStatus(price, nowUtc, maxPriceAgeHours);
                 if (status == FoodPriceStatus.Ok)
                 {
                     // Can happen when the price is fine but a crafted fish sauce lists it; treat as no data.
                     status = FoodPriceStatus.NoData;
                 }
 
-                var hasDate = price != null && price.SellPriceMin > 0;
+                var lastPrice = price == null ? 0m : useBuy ? price.BuyPriceMax : price.SellPriceMin;
+                var lastDate = price == null ? default : useBuy ? price.BuyPriceMaxDateUtc : price.SellPriceMinDateUtc;
+                var hasDate = lastPrice > 0m;
                 return new FoodMissingPriceItem
                 {
                     UniqueName = x.Key,
                     Status = status,
-                    LastSellPrice = hasDate ? price.SellPriceMin : 0m,
-                    LastSeenUtc = hasDate ? price.SellPriceMinDateUtc : default,
-                    AgeHours = hasDate ? Math.Max(0d, (nowUtc - price.SellPriceMinDateUtc).TotalHours) : 0d,
+                    LastSellPrice = hasDate ? lastPrice : 0m,
+                    LastSeenUtc = hasDate ? lastDate : default,
+                    AgeHours = hasDate ? Math.Max(0d, (nowUtc - lastDate).TotalHours) : 0d,
                     IsFood = x.Value.IsFood,
                     BlockedFoodNames = x.Value.Foods.OrderBy(name => name, StringComparer.CurrentCulture).ToList()
                 };

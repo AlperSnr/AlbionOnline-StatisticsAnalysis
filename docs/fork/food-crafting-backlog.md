@@ -6,7 +6,7 @@ Status legend: `[ ]` planned · `[~]` built, needs check · `[x]` done · `[?]` 
 Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodCrafting/` · Tests: `src/StatisticsAnalysisTool.UnitTests/Crafting/FoodCraftingTests.cs`
 
 > **Build status (2026-11-22):** .NET 10 SDK 10.0.404 installed. Solution builds with 0 errors (no new warnings);
-> all 258 unit tests pass. Used for real batches by the user (sell orders, plan lock, safety margin confirmed).
+> all 270 unit tests pass. Used for real batches by the user (sell orders, plan lock, safety margin confirmed).
 
 ## Decisions
 - Only **food** is in scope. Non-food crafting differences are ignored.
@@ -85,6 +85,12 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
       Order-book real cost uses the safe quantity.
 - [~] D13. "Fish sauce to craft" table: per sauce level the sauces to craft (expected + safety margin, whole crafts),
       crafts, Chopped Fish and Seaweed for that level, plus a total line. The shopping list buys exactly these amounts.
+- [~] D14. Instant sell option ("Sell food via": sell order / instant sell). Instant sell prices food at the highest
+      buy order (AODP buy price, or captured in-game buy orders from the market Sell tab), no setup fee, tax only.
+      With captured buy orders the plan uses the average over the planned items (selling more goes down the orders);
+      plan table shows "Buy orders" (red when not enough). Buy orders captured via a 2nd `[FORK]` hook.
+- [~] D15. Layout fits the window width (no page-wide horizontal scroll, fields wrap, narrower tables).
+      Shopping list: To buy → Buy up to (max sell order reached) → Avg price → Real cost first; details in tooltips.
 
 ## Open questions / things to check in-game
 - [x] Q1. Focus formula constants → verified (own spec 250 + 30).
@@ -99,7 +105,7 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
       owned fish sauce lowers the sauce crafts. Real cost from sell orders uses the quantity still to buy.
 - [?] E2. Read destiny board levels directly from game packets (unknown if the game sends them).
 - [?] E3. Use live in-game sales history from the Black Market tab instead of AODP volume.
-- [?] E4. Option: sell food instantly to buy orders (no setup fee) and/or buy ingredients via buy orders.
+- [~] E4. Sell food instantly to buy orders → done as D14. Buying ingredients via own buy orders: still open.
 - [?] E5. Exclude / pin specific foods in the planner.
 - [?] E6. Multiple destiny board profiles (one per character).
 - [?] E7. Copy the plan / shopping list to clipboard.
@@ -122,3 +128,4 @@ Branch: `fork/food-crafting` · Code: `src/StatisticsAnalysisTool/Crafting/FoodC
 |---|---|---|
 | Food Crafting `TabItem` block (5 lines, marked `[FORK]`) | `UserControls/CraftingControl.xaml` | low–medium (only if upstream edits the lines around the Loss Explorer tab) |
 | 1 line calling `FoodOrderBookStore.CaptureFromGame` (marked `[FORK]`) | `Network/Handler/AuctionGetOffersResponseHandler.cs` | low (only if upstream rewrites this small handler) |
+| 1 line calling `FoodOrderBookStore.CaptureFromGame(..., isBuyOrders: true)` (marked `[FORK]`) | `Network/Handler/AuctionGetRequestsResponseHandler.cs` | low (only if upstream rewrites this small handler) |

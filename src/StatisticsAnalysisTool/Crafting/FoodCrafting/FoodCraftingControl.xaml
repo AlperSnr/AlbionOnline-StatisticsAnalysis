@@ -56,7 +56,7 @@
         </Style>
     </UserControl.Resources>
 
-    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="10">
 
             <!-- Settings -->
@@ -68,6 +68,12 @@
                             <TextBlock Text="City (buy + craft + sell)" Style="{StaticResource Food.Label}" />
                             <ComboBox ItemsSource="{Binding CityOptions}" SelectedValuePath="Key" DisplayMemberPath="Value"
                                       SelectedValue="{Binding Settings.City, Mode=TwoWay}" MinWidth="140" Height="26" />
+                        </StackPanel>
+                        <StackPanel Style="{StaticResource Food.Field}"
+                                    ToolTip="Sell order: list at the lowest sell price and wait (setup fee + tax). Instant sell: sell right away to the highest buy orders (tax only). Open the market Sell tab for a food to capture its buy orders.">
+                            <TextBlock Text="Sell food via" Style="{StaticResource Food.Label}" />
+                            <ComboBox ItemsSource="{Binding SellModeOptions}" SelectedValuePath="Key" DisplayMemberPath="Value"
+                                      SelectedValue="{Binding Settings.SellMode, Mode=TwoWay}" MinWidth="170" Height="26" />
                         </StackPanel>
                         <StackPanel Style="{StaticResource Food.Field}">
                             <TextBlock Text="Daily bonus %" Style="{StaticResource Food.Label}" />
@@ -83,7 +89,7 @@
                             <TextBlock Text="Sales tax %" Style="{StaticResource Food.Label}" />
                             <TextBox Text="{Binding Settings.SalesTaxPercent, Mode=TwoWay}" Style="{StaticResource Food.Input}" />
                         </StackPanel>
-                        <StackPanel Style="{StaticResource Food.Field}">
+                        <StackPanel Style="{StaticResource Food.Field}" ToolTip="Only for sell orders. Instant sell has no setup fee.">
                             <TextBlock Text="Setup fee %" Style="{StaticResource Food.Label}" />
                             <TextBox Text="{Binding Settings.SetupFeePercent, Mode=TwoWay}" Style="{StaticResource Food.Input}" />
                         </StackPanel>
@@ -93,7 +99,7 @@
                         </StackPanel>
                         <StackPanel Style="{StaticResource Food.Field}"
                                     ToolTip="Use the sell orders the game sent while you opened items in the market (Buy tab). Buying more than the cheapest order pushes the price up; this is included.">
-                            <TextBlock Text="In-game sell orders" Style="{StaticResource Food.Label}" />
+                            <TextBlock Text="In-game orders" Style="{StaticResource Food.Label}" />
                             <CheckBox Content="Use for real cost" IsChecked="{Binding Settings.UseOrderBooks, Mode=TwoWay}" VerticalAlignment="Center" />
                         </StackPanel>
                         <StackPanel Style="{StaticResource Food.Field}"
@@ -220,7 +226,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="2" Style="{StaticResource App.FilterCard}" MinWidth="420">
+                <Border Grid.Column="2" Style="{StaticResource App.FilterCard}" MaxWidth="420">
                     <StackPanel>
                         <TextBlock Text="Fish sauce" Style="{StaticResource Food.SectionTitle}" />
                         <Grid>
@@ -243,17 +249,17 @@
                         <ListView ItemsSource="{Binding FishSauceRows}" Margin="0,4,0,0" MinHeight="60">
                             <ListView.View>
                                 <GridView>
-                                    <GridViewColumn Header="" Width="40">
+                                    <GridViewColumn Header="" Width="36">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
-                                                <Image Source="{Binding Icon}" Width="28" Height="28" />
+                                                <Image Source="{Binding Icon}" Width="26" Height="26" />
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
-                                    <GridViewColumn Header="Sauce" Width="120" DisplayMemberBinding="{Binding Name}" />
-                                    <GridViewColumn Header="Market" Width="80" DisplayMemberBinding="{Binding MarketPriceText}" />
-                                    <GridViewColumn Header="Crafted" Width="80" DisplayMemberBinding="{Binding CraftedCostText}" />
-                                    <GridViewColumn Header="Used" Width="110" DisplayMemberBinding="{Binding UsedText}" />
+                                    <GridViewColumn Header="Sauce" Width="105" DisplayMemberBinding="{Binding Name}" />
+                                    <GridViewColumn Header="Market" Width="65" DisplayMemberBinding="{Binding MarketPriceText}" />
+                                    <GridViewColumn Header="Crafted" Width="65" DisplayMemberBinding="{Binding CraftedCostText}" />
+                                    <GridViewColumn Header="Used" Width="95" DisplayMemberBinding="{Binding UsedText}" />
                                 </GridView>
                             </ListView.View>
                         </ListView>
@@ -283,10 +289,10 @@
                         </Style>
                     </ToggleButton.Style>
                 </ToggleButton>
-                <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource SolidColorBrush.Text.2}" VerticalAlignment="Center" Margin="10,0,0,0" TextWrapping="Wrap" MaxWidth="900" />
             </StackPanel>
-            <TextBlock Text="{Binding ReturnRateText}" Foreground="{StaticResource SolidColorBrush.Text.3}" Margin="0,0,0,2" />
-            <TextBlock Text="{Binding OrderBookCaptureText}" Foreground="{StaticResource SolidColorBrush.Text.3}" Margin="0,0,0,8" />
+            <TextBlock Text="{Binding StatusText}" Foreground="{StaticResource SolidColorBrush.Text.2}" Margin="0,0,0,4" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding ReturnRateText}" Foreground="{StaticResource SolidColorBrush.Text.3}" Margin="0,0,0,2" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding OrderBookCaptureText}" Foreground="{StaticResource SolidColorBrush.Text.3}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
             <!-- Missing / outdated prices -->
             <Expander Margin="0,0,0,10" IsExpanded="False">
@@ -310,13 +316,13 @@
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
-                                <GridViewColumn Header="Item" Width="230" DisplayMemberBinding="{Binding Name}" />
-                                <GridViewColumn Header="Tier" Width="55" DisplayMemberBinding="{Binding TierText}" />
-                                <GridViewColumn Header="Type" Width="80" DisplayMemberBinding="{Binding UsageText}" />
+                                <GridViewColumn Header="Item" Width="190" DisplayMemberBinding="{Binding Name}" />
+                                <GridViewColumn Header="Tier" Width="50" DisplayMemberBinding="{Binding TierText}" />
+                                <GridViewColumn Header="Type" Width="75" DisplayMemberBinding="{Binding UsageText}" />
                                 <GridViewColumn Header="Status" Width="90" DisplayMemberBinding="{Binding Item.StatusText}" />
                                 <GridViewColumn Header="Last price" Width="85" DisplayMemberBinding="{Binding LastPriceText}" />
                                 <GridViewColumn Header="Blocks" Width="60" DisplayMemberBinding="{Binding Item.BlockedFoodCount}" />
-                                <GridViewColumn Header="Blocked foods" Width="420">
+                                <GridViewColumn Header="Blocked foods" Width="360">
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding BlockedFoodsText}" TextTrimming="CharacterEllipsis" ToolTip="{Binding BlockedFoodsText}" />
@@ -389,27 +395,47 @@
                 </Border>
             </WrapPanel>
 
+            <TextBlock Text="{Binding SellModeText}" Foreground="{StaticResource SolidColorBrush.Text.3}" Margin="0,0,0,4" TextWrapping="Wrap" />
             <ListView ItemsSource="{Binding PlanRows}" MinHeight="80" Margin="0,0,0,10">
                 <ListView.View>
                     <GridView>
-                        <GridViewColumn Header="" Width="45">
+                        <GridViewColumn Header="" Width="40">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Image Source="{Binding Icon}" Width="32" Height="32" />
+                                    <Image Source="{Binding Icon}" Width="30" Height="30" />
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="Food" Width="230" DisplayMemberBinding="{Binding Entry.Candidate.Name}" />
-                        <GridViewColumn Header="Tier" Width="55" DisplayMemberBinding="{Binding Entry.Candidate.TierText}" />
-                        <GridViewColumn Header="Crafts" Width="65" DisplayMemberBinding="{Binding Entry.Crafts}" />
-                        <GridViewColumn Header="Items" Width="65" DisplayMemberBinding="{Binding Entry.Items}" />
-                        <GridViewColumn Header="Max crafts" Width="80" DisplayMemberBinding="{Binding Entry.MaxCrafts}" />
-                        <GridViewColumn Header="Focus" Width="80" DisplayMemberBinding="{Binding Entry.Focus, StringFormat=N0}" />
-                        <GridViewColumn Header="Investment" Width="100" DisplayMemberBinding="{Binding Entry.Investment, StringFormat=N0}" />
-                        <GridViewColumn Header="Profit" Width="100" DisplayMemberBinding="{Binding Entry.Profit, StringFormat=N0}" />
-                        <GridViewColumn Header="Profit / focus" Width="95" DisplayMemberBinding="{Binding Entry.Candidate.ProfitPerFocus, StringFormat=N1}" />
-                        <GridViewColumn Header="Sell price" Width="90" DisplayMemberBinding="{Binding Entry.Candidate.SellPrice, StringFormat=N0}" />
-                        <GridViewColumn Header="Sold / day" Width="80" DisplayMemberBinding="{Binding Entry.Candidate.DailyVolume, StringFormat=N1}" />
+                        <GridViewColumn Header="Food" Width="190" DisplayMemberBinding="{Binding Entry.Candidate.Name}" />
+                        <GridViewColumn Header="Tier" Width="50" DisplayMemberBinding="{Binding Entry.Candidate.TierText}" />
+                        <GridViewColumn Header="Crafts" Width="55">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Entry.Crafts}" FontWeight="Bold" />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="Items" Width="55" DisplayMemberBinding="{Binding Entry.Items}" />
+                        <GridViewColumn Header="Max crafts" Width="75" DisplayMemberBinding="{Binding Entry.MaxCrafts}" />
+                        <GridViewColumn Header="Focus" Width="65" DisplayMemberBinding="{Binding Entry.Focus, StringFormat=N0}" />
+                        <GridViewColumn Header="Investment" Width="90" DisplayMemberBinding="{Binding Entry.Investment, StringFormat=N0}" />
+                        <GridViewColumn Header="Profit" Width="85" DisplayMemberBinding="{Binding Entry.Profit, StringFormat=N0}" />
+                        <GridViewColumn Header="Profit / focus" Width="90" DisplayMemberBinding="{Binding Entry.Candidate.ProfitPerFocus, StringFormat=N1}" />
+                        <GridViewColumn Header="Sell price" Width="75" DisplayMemberBinding="{Binding Entry.Candidate.SellPrice, StringFormat=N0}" />
+                        <GridViewColumn Header="Buy orders" Width="145">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock x:Name="BuyOrdersText" Text="{Binding BuyOrdersText}"
+                                               ToolTip="Instant sell: how many of the planned items the captured buy orders take, and the lowest buy order you reach." />
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsShortOfBuyOrders}" Value="True">
+                                            <Setter TargetName="BuyOrdersText" Property="Foreground" Value="{StaticResource SolidColorBrush.Accent.Red.2}" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="Sold / day" Width="75" DisplayMemberBinding="{Binding Entry.Candidate.DailyVolume, StringFormat=N1}" />
                     </GridView>
                 </ListView.View>
             </ListView>
@@ -421,16 +447,15 @@
             <ListView ItemsSource="{Binding ShoppingRows}" MinHeight="80" Margin="0,0,0,10">
                 <ListView.View>
                     <GridView>
-                        <GridViewColumn Header="" Width="45">
+                        <GridViewColumn Header="" Width="40">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Image Source="{Binding Icon}" Width="32" Height="32" />
+                                    <Image Source="{Binding Icon}" Width="30" Height="30" />
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="Item" Width="230" DisplayMemberBinding="{Binding Name}" />
-                        <GridViewColumn Header="For" Width="85" DisplayMemberBinding="{Binding UsageText}" />
-                        <GridViewColumn Header="To buy" Width="80">
+                        <GridViewColumn Header="Item" Width="180" DisplayMemberBinding="{Binding Name}" />
+                        <GridViewColumn Header="To buy" Width="65">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Item.QuantityToBuy, StringFormat=N0}" FontWeight="Bold"
@@ -438,28 +463,17 @@
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="Need (safe)" Width="90">
+                        <GridViewColumn Header="Buy up to" Width="80">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding Item.SafeQuantityToBuy, StringFormat=N0}"
-                                               ToolTip="{Binding Item.SafetyExtra, StringFormat='Expected + {0:N0} extra against bad luck with returns'}" />
+                                    <TextBlock Text="{Binding MaxPriceText}" FontWeight="Bold" Foreground="{StaticResource SolidColorBrush.Accent.Yellow.2}"
+                                               ToolTip="Highest sell order price you reach when buying the quantity (from captured in-game sell orders). Buy until this price." />
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="In bank" Width="70" DisplayMemberBinding="{Binding BankOwned, StringFormat=N0}" />
-                        <GridViewColumn Header="Owned (extra)" Width="100">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBox Text="{Binding ManualOwned, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="80"
-                                             ToolTip="Owned outside the bank (inventory, other chests). Press Recalculate after typing." />
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-                        <GridViewColumn Header="Buy (expected)" Width="110" DisplayMemberBinding="{Binding Item.NetQuantityToBuy, StringFormat=N0}" />
-                        <GridViewColumn Header="Buy (no returns)" Width="120" DisplayMemberBinding="{Binding Item.GrossQuantityToBuy, StringFormat=N0}" />
-                        <GridViewColumn Header="Unit price" Width="90" DisplayMemberBinding="{Binding Item.UnitPrice, StringFormat=N0}" />
-                        <GridViewColumn Header="Cost (expected)" Width="120" DisplayMemberBinding="{Binding Item.NetCost, StringFormat=N0}" />
-                        <GridViewColumn Header="Listed" Width="110">
+                        <GridViewColumn Header="Avg price" Width="75" DisplayMemberBinding="{Binding AvgPriceText}" />
+                        <GridViewColumn Header="Real cost" Width="90" DisplayMemberBinding="{Binding RealCostText}" />
+                        <GridViewColumn Header="Listed" Width="95">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock x:Name="ListedText" Text="{Binding ListedText}" />
@@ -471,9 +485,25 @@
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="Real avg price" Width="130" DisplayMemberBinding="{Binding RealUnitPriceText}" />
-                        <GridViewColumn Header="Real cost" Width="110" DisplayMemberBinding="{Binding RealCostText}" />
-                        <GridViewColumn Header="Orders seen" Width="100" DisplayMemberBinding="{Binding BookAgeText}" />
+                        <GridViewColumn Header="Need (safe)" Width="80">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Item.SafeQuantityToBuy, StringFormat=N0}" ToolTip="{Binding QuantityDetailsText}" />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="In bank" Width="60" DisplayMemberBinding="{Binding BankOwned, StringFormat=N0}" />
+                        <GridViewColumn Header="Owned (extra)" Width="90">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox Text="{Binding ManualOwned, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="70"
+                                             ToolTip="Owned outside the bank (inventory, other chests). Press Recalculate after typing." />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="Market price" Width="85" DisplayMemberBinding="{Binding Item.UnitPrice, StringFormat=N0}" />
+                        <GridViewColumn Header="For" Width="70" DisplayMemberBinding="{Binding UsageText}" />
+                        <GridViewColumn Header="Orders seen" Width="90" DisplayMemberBinding="{Binding BookAgeText}" />
                     </GridView>
                 </ListView.View>
             </ListView>
@@ -484,37 +514,42 @@
             <ListView ItemsSource="{Binding FishSauceCraftRows}" MinHeight="60" Margin="0,0,0,10">
                 <ListView.View>
                     <GridView>
-                        <GridViewColumn Header="" Width="45">
+                        <GridViewColumn Header="" Width="40">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Image Source="{Binding Icon}" Width="32" Height="32" />
+                                    <Image Source="{Binding Icon}" Width="30" Height="30" />
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="Sauce" Width="200" DisplayMemberBinding="{Binding Name}" />
-                        <GridViewColumn Header="Needed" Width="70" DisplayMemberBinding="{Binding Craft.SaucesNeeded, StringFormat=N0}" />
-                        <GridViewColumn Header="In bank" Width="70" DisplayMemberBinding="{Binding BankOwned, StringFormat=N0}" />
-                        <GridViewColumn Header="Owned (extra)" Width="100">
+                        <GridViewColumn Header="Sauce" Width="160">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBox Text="{Binding ManualOwned, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="80"
-                                             ToolTip="Sauces owned outside the bank. Press Recalculate after typing." />
+                                    <TextBlock Text="{Binding Name}" ToolTip="{Binding IngredientsText}" />
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="Sauces to craft" Width="115">
+                        <GridViewColumn Header="To craft" Width="70">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Craft.SaucesCrafted, StringFormat=N0}" FontWeight="Bold" />
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="Crafts" Width="70" DisplayMemberBinding="{Binding Craft.Crafts, StringFormat=N0}" />
-                        <GridViewColumn Header="Chopped Fish" Width="105" DisplayMemberBinding="{Binding ChoppedFish, StringFormat=N0}" />
-                        <GridViewColumn Header="Seaweed" Width="85" DisplayMemberBinding="{Binding Seaweed, StringFormat=N0}" />
-                        <GridViewColumn Header="Used (expected)" Width="115" DisplayMemberBinding="{Binding Craft.NetSauces, StringFormat=N0}" />
-                        <GridViewColumn Header="Used (no returns)" Width="125" DisplayMemberBinding="{Binding Craft.GrossSauces, StringFormat=N0}" />
-                        <GridViewColumn Header="Recipe" Width="260" DisplayMemberBinding="{Binding IngredientsText}" />
+                        <GridViewColumn Header="Crafts" Width="60" DisplayMemberBinding="{Binding Craft.Crafts, StringFormat=N0}" />
+                        <GridViewColumn Header="Chopped Fish" Width="95" DisplayMemberBinding="{Binding ChoppedFish, StringFormat=N0}" />
+                        <GridViewColumn Header="Seaweed" Width="70" DisplayMemberBinding="{Binding Seaweed, StringFormat=N0}" />
+                        <GridViewColumn Header="Needed" Width="65" DisplayMemberBinding="{Binding Craft.SaucesNeeded, StringFormat=N0}" />
+                        <GridViewColumn Header="In bank" Width="60" DisplayMemberBinding="{Binding BankOwned, StringFormat=N0}" />
+                        <GridViewColumn Header="Owned (extra)" Width="90">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox Text="{Binding ManualOwned, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="70"
+                                             ToolTip="Sauces owned outside the bank. Press Recalculate after typing." />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="Used (expected)" Width="105" DisplayMemberBinding="{Binding Craft.NetSauces, StringFormat=N0}" />
+                        <GridViewColumn Header="Used (no returns)" Width="115" DisplayMemberBinding="{Binding Craft.GrossSauces, StringFormat=N0}" />
                     </GridView>
                 </ListView.View>
             </ListView>
@@ -524,28 +559,34 @@
             <ListView ItemsSource="{Binding Candidates}" MinHeight="120">
                 <ListView.View>
                     <GridView>
-                        <GridViewColumn Header="" Width="45">
+                        <GridViewColumn Header="" Width="40">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Image Source="{Binding Icon}" Width="32" Height="32" />
+                                    <Image Source="{Binding Icon}" Width="30" Height="30" />
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="Food" Width="230" DisplayMemberBinding="{Binding Candidate.Name}" />
-                        <GridViewColumn Header="Tier" Width="55" DisplayMemberBinding="{Binding Candidate.TierText}" />
-                        <GridViewColumn Header="Category" Width="90" DisplayMemberBinding="{Binding CategoryText}" />
-                        <GridViewColumn Header="Per craft" Width="70" DisplayMemberBinding="{Binding Candidate.AmountCrafted}" />
-                        <GridViewColumn Header="Base focus" Width="80" DisplayMemberBinding="{Binding Candidate.BaseFocusPerCraft, StringFormat=N0}" />
-                        <GridViewColumn Header="Focus / craft" Width="90" DisplayMemberBinding="{Binding Candidate.FocusPerCraft, StringFormat=N1}" />
-                        <GridViewColumn Header="Focus / item" Width="85" DisplayMemberBinding="{Binding Candidate.FocusPerItem, StringFormat=N1}" />
-                        <GridViewColumn Header="Sell price" Width="85" DisplayMemberBinding="{Binding Candidate.SellPrice, StringFormat=N0}" />
-                        <GridViewColumn Header="Cost / item" Width="85" DisplayMemberBinding="{Binding Candidate.CostPerItem, StringFormat=N0}" />
-                        <GridViewColumn Header="Profit / item" Width="90" DisplayMemberBinding="{Binding Candidate.ProfitPerItem, StringFormat=N0}" />
-                        <GridViewColumn Header="Profit / focus" Width="95" DisplayMemberBinding="{Binding Candidate.ProfitPerFocus, StringFormat=N1}" />
-                        <GridViewColumn Header="ROI %" Width="65" DisplayMemberBinding="{Binding Candidate.RoiPercent, StringFormat=N1}" />
-                        <GridViewColumn Header="Sold / day" Width="80" DisplayMemberBinding="{Binding Candidate.DailyVolume, StringFormat=N1}" />
-                        <GridViewColumn Header="Max crafts" Width="80" DisplayMemberBinding="{Binding MaxCrafts}" />
-                        <GridViewColumn Header="Planned" Width="70" DisplayMemberBinding="{Binding PlannedCrafts}" />
+                        <GridViewColumn Header="Food" Width="190" DisplayMemberBinding="{Binding Candidate.Name}" />
+                        <GridViewColumn Header="Tier" Width="50" DisplayMemberBinding="{Binding Candidate.TierText}" />
+                        <GridViewColumn Header="Category" Width="80" DisplayMemberBinding="{Binding CategoryText}" />
+                        <GridViewColumn Header="Profit / focus" Width="90" DisplayMemberBinding="{Binding Candidate.ProfitPerFocus, StringFormat=N1}" />
+                        <GridViewColumn Header="Focus / craft" Width="85">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Candidate.FocusPerCraft, StringFormat=N1}"
+                                               ToolTip="{Binding Candidate.BaseFocusPerCraft, StringFormat='Base focus per craft without destiny board: {0:N0}'}" />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="Focus / item" Width="80" DisplayMemberBinding="{Binding Candidate.FocusPerItem, StringFormat=N1}" />
+                        <GridViewColumn Header="Per craft" Width="65" DisplayMemberBinding="{Binding Candidate.AmountCrafted}" />
+                        <GridViewColumn Header="Sell price" Width="75" DisplayMemberBinding="{Binding Candidate.SellPrice, StringFormat=N0}" />
+                        <GridViewColumn Header="Cost / item" Width="75" DisplayMemberBinding="{Binding Candidate.CostPerItem, StringFormat=N0}" />
+                        <GridViewColumn Header="Profit / item" Width="85" DisplayMemberBinding="{Binding Candidate.ProfitPerItem, StringFormat=N0}" />
+                        <GridViewColumn Header="ROI %" Width="60" DisplayMemberBinding="{Binding Candidate.RoiPercent, StringFormat=N1}" />
+                        <GridViewColumn Header="Sold / day" Width="75" DisplayMemberBinding="{Binding Candidate.DailyVolume, StringFormat=N1}" />
+                        <GridViewColumn Header="Max crafts" Width="75" DisplayMemberBinding="{Binding MaxCrafts}" />
+                        <GridViewColumn Header="Planned" Width="65" DisplayMemberBinding="{Binding PlannedCrafts}" />
                     </GridView>
                 </ListView.View>
             </ListView>

@@ -9,8 +9,8 @@ using System.Linq;
 namespace StatisticsAnalysisTool.Crafting.FoodCrafting;
 
 // [FORK] Food crafting feature. Fork-only file.
-// The game sends the sell orders (price + amount) of an item when its market page is opened.
-// They are kept here so the shopping list can show what buying the needed quantity really costs.
+// The game sends the sell orders (market Buy tab) and buy orders (market Sell tab) of an item with price + amount.
+// Sell orders give the real cost of the shopping list; buy orders give the real revenue when selling food instantly.
 
 public sealed class FoodOrderBookOrder
 {
@@ -23,6 +23,10 @@ public sealed class FoodOrderBook
 {
     public string UniqueName { get; set; }
     public MarketLocation Location { get; set; }
+
+    /// <summary>True = buy orders (what players pay when you sell instantly), false = sell orders.</summary>
+    public bool IsBuyOrders { get; set; }
+
     public DateTime UpdatedUtc { get; set; }
     public List<FoodOrderBookOrder> Orders { get; set; } = [];
 
@@ -30,6 +34,36 @@ public sealed class FoodOrderBook
     public int TotalAmount => Orders?.Sum(x => Math.Max(0, x.Amount)) ?? 0;
     [System.Text.Json.Serialization.JsonIgnore]
     public long MinPrice => Orders is { Count: > 0 } ? Orders.Min(x => x.UnitPrice) : 0;
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public long MaxPrice => Orders is { Count: > 0 } ? Orders.Max(x => x.UnitPrice) : 0;
+
+    /// <summary>Best price for us: lowest sell order to buy from, highest buy order to sell into.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public long BestPrice => IsBuyOrders ? MaxPrice : MinPrice;
+}
+
+/// <summary>Selling a quantity instantly into buy orders (highest first).</summary>
+public sealed class FoodOrderBookSale
+{
+    public int RequestedQuantity { get; init; }
+    public int FilledQuantity { get; init; }
+
+    /// <summary>Silver before tax for the quantity the buy orders take.</summary>
+    public decimal FilledRevenue { get; init; }
+
+    public decimal BestPrice { get; init; }
+
+    /// <summary>Lowest buy order used (or the lowest listed when there are not enough).</summary>
+    public decimal WorstPrice { get; init; }
+
+    public bool IsEnoughListed => FilledQuantity >= RequestedQuantity;
+    public int MissingQuantity => Math.Max(0, RequestedQuantity - FilledQuantity);
+
+    /// <summary>Filled revenue + the missing quantity at the lowest listed price (optimistic: those may not sell at all).</summary>
+    public decimal EstimatedRevenue => FilledRevenue + MissingQuantity * WorstPrice;
+
+    public decimal AverageUnitPrice => RequestedQuantity > 0 ? EstimatedRevenue / RequestedQuantity : BestPrice;
 }
 
 public sealed class FoodOrderBookCost
@@ -54,6 +88,48 @@ public sealed class FoodOrderBookCost
 
 public static class FoodOrderBookCalculator
 {
+    /// <summary>Sells into the highest buy orders first until the quantity is reached.</summary>
+    public static FoodOrderBookSale GetSale(FoodOrderBook book, int quantity)
+    {
+        var orders = (book?.Orders ?? [])
+            .Where(x => x != null && x.Amount > 0 && x.UnitPrice > 0)
+            .OrderByDescending(x => x.UnitPrice)
+            .ToList();
+
+        if (orders.Count == 0)
+        {
+            return new FoodOrderBookSale { RequestedQuantity = Math.Max(0, quantity) };
+        }
+
+        var remaining = Math.Max(0, quantity);
+        var filled = 0;
+        var revenue = 0m;
+        long worstUsedPrice = orders[0].UnitPrice;
+
+        foreach (var order in orders)
+        {
+            if (remaining <= 0)
+            {
+                break;
+            }
+
+            var take = Math.Min(remaining, order.Amount);
+            filled += take;
+            revenue += take * (decimal) order.UnitPrice;
+            remaining -= take;
+            worstUsedPrice = order.UnitPrice;
+        }
+
+        return new FoodOrderBookSale
+        {
+            RequestedQuantity = Math.Max(0, quantity),
+            FilledQuantity = filled,
+            FilledRevenue = revenue,
+            BestPrice = orders[0].UnitPrice,
+            WorstPrice = remaining > 0 ? orders[^1].UnitPrice : worstUsedPrice
+        };
+    }
+
     /// <summary>Buys from the cheapest order upwards until the quantity is reached.</summary>
     public static FoodOrderBookCost GetCost(FoodOrderBook book, int quantity)
     {
@@ -106,14 +182,17 @@ public sealed class FoodOrderBookStore
     public static readonly TimeSpan KeepTime = TimeSpan.FromDays(7);
 
     private readonly object _lock = new();
-    private readonly Dictionary<(string UniqueName, MarketLocation Location), FoodOrderBook> _books = new();
+    private readonly Dictionary<(string UniqueName, MarketLocation Location, bool IsBuyOrders), FoodOrderBook> _books = new();
 
     public static FoodOrderBookStore Shared { get; } = new();
 
     public event Action Changed;
 
-    /// <summary>Hook for the market packet handler (<c>AuctionGetOffersResponseHandler</c>). Never throws.</summary>
-    public static void CaptureFromGame(IEnumerable<AuctionEntry> offers)
+    /// <summary>
+    /// Hook for the market packet handlers: sell orders from <c>AuctionGetOffersResponseHandler</c>,
+    /// buy orders from <c>AuctionGetRequestsResponseHandler</c>. Never throws.
+    /// </summary>
+    public static void CaptureFromGame(IEnumerable<AuctionEntry> offers, bool isBuyOrders = false)
     {
         try
         {
@@ -128,11 +207,12 @@ public sealed class FoodOrderBookStore
                     .Where(x => x is { IsFinished: false } && !string.IsNullOrWhiteSpace(x.ItemTypeId))
                     .Select(x => (x.ItemTypeId, x.Id, FixPoint.FromInternalValue(x.UnitPriceSilver).IntegerValue, x.Amount)),
                 location,
-                DateTime.UtcNow);
+                DateTime.UtcNow,
+                isBuyOrders);
         }
         catch (Exception e)
         {
-            Log.Debug(e, "Food crafting could not store market offers");
+            Log.Debug(e, "Food crafting could not store market orders");
         }
     }
 
@@ -148,7 +228,11 @@ public sealed class FoodOrderBookStore
         return location;
     }
 
-    public void AddOffers(IEnumerable<(string UniqueName, long Id, long UnitPrice, int Amount)> offers, MarketLocation location, DateTime nowUtc)
+    public void AddOffers(
+        IEnumerable<(string UniqueName, long Id, long UnitPrice, int Amount)> offers,
+        MarketLocation location,
+        DateTime nowUtc,
+        bool isBuyOrders = false)
     {
         var changed = false;
 
@@ -156,10 +240,10 @@ public sealed class FoodOrderBookStore
         {
             foreach (var group in offers.GroupBy(x => x.UniqueName, StringComparer.OrdinalIgnoreCase))
             {
-                var key = (group.Key.ToUpperInvariant(), location);
+                var key = (group.Key.ToUpperInvariant(), location, isBuyOrders);
                 if (!_books.TryGetValue(key, out var book) || nowUtc - book.UpdatedUtc > MergeWindow)
                 {
-                    book = new FoodOrderBook { UniqueName = group.Key, Location = location };
+                    book = new FoodOrderBook { UniqueName = group.Key, Location = location, IsBuyOrders = isBuyOrders };
                     _books[key] = book;
                 }
 
@@ -184,7 +268,7 @@ public sealed class FoodOrderBookStore
     }
 
     /// <summary>The order book of an item in a city, or null when none or older than the max age (0 = no limit).</summary>
-    public FoodOrderBook Get(string uniqueName, MarketLocation location, DateTime nowUtc, TimeSpan maxAge)
+    public FoodOrderBook Get(string uniqueName, MarketLocation location, DateTime nowUtc, TimeSpan maxAge, bool isBuyOrders = false)
     {
         if (string.IsNullOrWhiteSpace(uniqueName))
         {
@@ -193,7 +277,7 @@ public sealed class FoodOrderBookStore
 
         lock (_lock)
         {
-            if (!_books.TryGetValue((uniqueName.ToUpperInvariant(), location), out var book) || book.Orders.Count == 0)
+            if (!_books.TryGetValue((uniqueName.ToUpperInvariant(), location, isBuyOrders), out var book) || book.Orders.Count == 0)
             {
                 return null;
             }
@@ -207,11 +291,11 @@ public sealed class FoodOrderBookStore
         }
     }
 
-    public int Count(MarketLocation location, DateTime nowUtc, TimeSpan maxAge)
+    public int Count(MarketLocation location, DateTime nowUtc, TimeSpan maxAge, bool isBuyOrders = false)
     {
         lock (_lock)
         {
-            return _books.Values.Count(x => x.Location == location && x.Orders.Count > 0
+            return _books.Values.Count(x => x.Location == location && x.IsBuyOrders == isBuyOrders && x.Orders.Count > 0
                                              && (maxAge <= TimeSpan.Zero || nowUtc - x.UpdatedUtc <= maxAge));
         }
     }
@@ -235,7 +319,7 @@ public sealed class FoodOrderBookStore
                     continue;
                 }
 
-                var key = (book.UniqueName.ToUpperInvariant(), book.Location);
+                var key = (book.UniqueName.ToUpperInvariant(), book.Location, book.IsBuyOrders);
                 if (!_books.TryGetValue(key, out var existing) || existing.UpdatedUtc < book.UpdatedUtc)
                 {
                     _books[key] = Copy(book);
@@ -258,6 +342,7 @@ public sealed class FoodOrderBookStore
         {
             UniqueName = book.UniqueName,
             Location = book.Location,
+            IsBuyOrders = book.IsBuyOrders,
             UpdatedUtc = book.UpdatedUtc,
             Orders = (book.Orders ?? []).Select(x => new FoodOrderBookOrder { Id = x.Id, UnitPrice = x.UnitPrice, Amount = x.Amount }).ToList()
         };

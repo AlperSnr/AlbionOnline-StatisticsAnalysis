@@ -17,6 +17,7 @@ public class AuctionGetRequestsResponseHandler : ResponsePacketHandler<AuctionGe
     {
         _trackingController.MarketController.AddBuyOrders(value.AuctionEntries);
         _trackingController.MarketController.UpdateBuyOrderMarketData(value.AuctionEntries);
+        Crafting.FoodCrafting.FoodOrderBookStore.CaptureFromGame(value.AuctionEntries, isBuyOrders: true); // [FORK] food crafting buy orders
         await Task.CompletedTask;
     }
 }

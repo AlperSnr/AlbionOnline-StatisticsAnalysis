@@ -17,6 +17,12 @@ public sealed class FoodEvaluationContext
 
     public IReadOnlyDictionary<string, decimal> DailyVolumes { get; init; }
 
+    /// <summary>
+    /// Price the food is sold at. Instant sell: highest buy order (or average over the planned quantity).
+    /// Null = use <see cref="UnitPrices"/> (lowest sell order).
+    /// </summary>
+    public IReadOnlyDictionary<string, decimal> FoodSellPrices { get; init; }
+
     /// <summary>Resolved fish sauce price per level (1-3).</summary>
     public IReadOnlyDictionary<int, FishSauceCost> FishSauceCosts { get; init; }
 
@@ -105,14 +111,14 @@ public sealed class FoodCandidateEvaluator
         var fce = FoodFocusCalculator.GetFocusCostEfficiency(settings.DestinyBoard, category);
         var focusPerCraft = FoodFocusCalculator.GetFocusPerCraft(baseFocus, fce, amountCrafted);
         var returnRate = GetFoodReturnRatePercent(item, settings);
-        var sellPrice = context.UnitPrices.GetValueOrDefault(item.UniqueName);
+        var sellPrice = (context.FoodSellPrices ?? context.UnitPrices).GetValueOrDefault(item.UniqueName);
         var dailyVolume = context.DailyVolumes.GetValueOrDefault(item.UniqueName);
 
         var invalidReason = string.Empty;
         var missingPriceItems = new List<string>();
         if (sellPrice <= 0m)
         {
-            invalidReason = "No recent sell price";
+            invalidReason = settings.IsInstantSell ? "No recent buy order" : "No recent sell price";
             missingPriceItems.Add(item.UniqueName);
         }
 
@@ -187,7 +193,7 @@ public sealed class FoodCandidateEvaluator
             StationFee = settings.StationFeePerHundredNutrition,
             NutritionConsumedPerRun = HasStationFee(item.Tier) ? _stationFeeService.GetNutritionConsumedPerRun(item) : 0m,
             SalesTaxPercent = settings.SalesTaxPercent,
-            SetupFeePercent = settings.SetupFeePercent,
+            SetupFeePercent = settings.IsInstantSell ? 0m : settings.SetupFeePercent,
             OutputUnitWeight = ItemController.GetWeight(item.FullItemInformation),
             Resources = resourceInputs
         });
